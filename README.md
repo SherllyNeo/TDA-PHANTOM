@@ -4,13 +4,10 @@ Topological data analysis - Persistent Homology Analysis via Null Testing On Man
 
 ## Quickstart
 
-All analysis has these steps 
-* Generate your persistence diagram 
-* Anal
-
 
 ```{python}
 from ripser import ripser
+from tdaphamtom import Phantom
 
 
 def _make_circle(n=2000, noise=0.03, seed=1):
