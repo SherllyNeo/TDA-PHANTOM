@@ -3,9 +3,9 @@ Integration tests for Phantom.hypothesis_test
 
 Tests that hypothesis_test produces sensible results for three
 geometrically distinct point clouds with known topology:
-    - Filled disk   (beta_1 = 0): no significant H₁ bars expected
-    - Circle        (beta_1 = 1): one significant H₁ bar expected
-    - Torus         (beta_1 = 2): two significant H₁ bars expected
+    - Filled disk   (beta_1 = 0): no significant H_1 bars expected
+    - Circle        (beta_1 = 1): one significant H_1 bar expected
+    - Torus         (beta_1 = 2): two significant H_1 bars expected
 
 Run with:
     pytest tests/integration_tests/null_hypothesis_test.py -v
