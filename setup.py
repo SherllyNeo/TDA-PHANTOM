@@ -10,6 +10,7 @@ setup(
     install_requires = [
         "numpy==2.3.5",
         "matplotlib==3.10.6",
+        "gudhi==3.11.0",
     ],
     long_description              = long_description,
     long_description_content_type = "text/markdown",

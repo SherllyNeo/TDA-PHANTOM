@@ -1,6 +1,7 @@
 import numpy as np
 import warnings
 from .hypothesis_tests.universal_null_tests.universal_null_hypothesis_test import UNTest
+from .hypothesis_tests.bottleneck_distance_tests.bottleneck_distance_test import BNTest
 from typing import List
 import matplotlib.pyplot as plt
 
@@ -120,7 +121,7 @@ class Phantom:
     def hypothesis_test(
             self,
             alpha:             float     = 0.05,
-            methods:           List[str] = ["universal_null"],
+            methods:           List[str] = ["universal_null","bottleneck"],
             correction_method: str       = "BH",
             ) -> dict:
         """
@@ -148,6 +149,14 @@ class Phantom:
                     correction_strategy = correction_method,
                     )
             results["universal_null"] = test.results()
+
+        if "bottleneck" in methods:
+            test = BNTest(
+                    dgm                 = self.dgm,
+                    k                   = self.k,
+                    alpha               = alpha,
+                    )
+            results["bottleneck"] = test.results()
 
         self._cached_results = results
 
