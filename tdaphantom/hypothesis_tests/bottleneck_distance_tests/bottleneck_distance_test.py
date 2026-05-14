@@ -58,9 +58,6 @@ class BNTest:
             subsample = self.dgm[idx]
             T_j_array[i] = self.w_infinity(subsample, self.dgm)
 
-            T_j = self.w_infinity(subsamples[i],self.dgm)
-            T_j_array[i] = T_j
-
         return T_j_array
 
     def results(self) -> np.ndarray:
@@ -68,7 +65,7 @@ class BNTest:
         Returns a structured array with one row per bar.
         Cols: birth, death, pers, p_value, significant
         """
-        T_j_array = self._subsampling_method(return_null=True)
+        T_j_array = self._subsampling_method()
         c_n       = 2.0 * float(np.quantile(T_j_array, 1.0 - self.alpha))
 
         births    = self.dgm[:, 0]
