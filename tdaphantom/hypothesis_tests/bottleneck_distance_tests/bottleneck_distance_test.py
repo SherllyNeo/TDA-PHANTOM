@@ -15,7 +15,7 @@ class BNTest:
         alpha:               float = 0.05,
         complex:             str   = "VR",
         correction_strategy: str   = "BH",
-        max_depth:           int   = 1000,
+        max_depth:           int   = 100000,
     ):
         """ 
         Inspired by the bottleneck hypothesis testing from
@@ -32,7 +32,7 @@ class BNTest:
         w_inf_approx = gudhi.bottleneck_distance(dgm_1.tolist(), dgm_2.tolist(), e=0.01)
         return w_inf_approx
 
-    def _subsampling_method(self,subsample_percentage: float = 0.6) -> float:
+    def _subsampling_method(self,subsample_percentage: float = 0.8) -> float:
         """
         Fasy et al. 4.2 subsampling
         b   = subsample size = O(n / log(n))
@@ -79,7 +79,7 @@ class BNTest:
             float(np.mean(T_j_array >= p / 2)) for p in pers
         ])
 
-        rejected  = pers > c_n
+        rejected  = pers > math.sqrt(2)*c_n
 
         return {
             "results_array" : np.column_stack([
@@ -89,5 +89,5 @@ class BNTest:
             p_values,
             rejected.astype(float),
         ]),
-        "threshold": c_n
+        "threshold": math.sqrt(2)*c_n
         }

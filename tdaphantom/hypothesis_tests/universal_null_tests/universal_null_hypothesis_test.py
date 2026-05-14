@@ -74,6 +74,11 @@ class UNTest:
         """
         minimum death/birth ratio such that the p-value for this diagram is under x
         """
+        if x <= 0.0:
+            return np.inf
+        if x >= 1.0:
+            return 1.0
+
         B  = -EULER_MASCHERONI - self.A * self.L_hat
         l_thresh = np.log(-np.log(x))
         return float(np.exp(np.exp((l_thresh - B) / self.A)))

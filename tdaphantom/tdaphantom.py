@@ -224,7 +224,7 @@ class Phantom:
 
                 ax.scatter(births[~sig], deaths[~sig], s=8,  alpha=0.4,
                            color="steelblue", label="noise")
-                ax.scatter(births[sig],  deaths[sig],  s=60, alpha=0.9,
+                ax.scatter(births[sig],  deaths[sig],  s=9, alpha=0.9,
                            color="crimson", label=f"significant ({sig.sum()})", zorder=5)
 
                 ax.set_xlabel("birth")
@@ -246,15 +246,7 @@ class Phantom:
                     ax.hlines(rank, births[idx], deaths[idx],
                               colors=color, linewidth=lw, alpha=av)
 
-                # draw threshold as vertical line at birth + threshold
-                # (a bar is significant when its length > threshold)
-                if not np.isnan(thr):
-                    ax.axvline(thr, color="steelblue", lw=1.2,
-                               linestyle="--", alpha=0.7,
-                               label=f"min sig pers={thr:.3f}")
-                    ax.legend(fontsize=8)
-
-                ax.set_xlabel("filtration value ε")
+                ax.set_xlabel("filtration value epsilon")
                 ax.set_ylabel("bar rank")
                 ax.set_title(f"{mname} — barcode ({sig.sum()} significant)")
                 ax.invert_yaxis()
