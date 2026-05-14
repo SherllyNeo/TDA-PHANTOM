@@ -88,5 +88,5 @@ class BNTest:
                 p_values,
                 rejected.astype(float),
             ]),
-            "threshold": math.sqrt(2)*c_n  # used for diagram
+            "threshold": 2*c_n  # used for diagram
         }
