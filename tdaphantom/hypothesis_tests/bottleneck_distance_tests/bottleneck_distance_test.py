@@ -13,32 +13,33 @@ class BNTest:
         dgm:                 np.ndarray,
         k:                   int,
         alpha:               float = 0.05,
-        complex:             str   = "VR",
-        correction_strategy: str   = "BH",
-        max_depth:           int   = 100000,
+        complex:             str = "VR",
+        correction_strategy: str = "BH",
+        max_depth:           int = 100000,
     ):
-        """ 
+        """
         Inspired by the bottleneck hypothesis testing from
         'confidence sets for persistence diagrams'
         by Fasy et al
         """
-        self.dgm                 = dgm
-        self.k                   = k
-        self.complex             = complex  # currently only VR is supported
-        self.max_depth           = max_depth
-        self.alpha               = alpha
+        self.dgm = dgm
+        self.k = k
+        self.complex = complex  # currently only VR is supported
+        self.max_depth = max_depth
+        self.alpha = alpha
 
-    def w_infinity(self,dgm_1: np.ndarray, dgm_2: np.ndarray) -> float:
-        w_inf_approx = gudhi.bottleneck_distance(dgm_1.tolist(), dgm_2.tolist(), e=0.01)
+    def w_infinity(self, dgm_1: np.ndarray, dgm_2: np.ndarray) -> float:
+        w_inf_approx = gudhi.bottleneck_distance(
+            dgm_1.tolist(), dgm_2.tolist(), e=0.01)
         return w_inf_approx
 
-    def _subsampling_method(self,subsample_percentage: float = 0.8) -> float:
+    def _subsampling_method(self, subsample_percentage: float = 0.8) -> float:
         """
         Fasy et al. 4.2 subsampling
         b   = subsample size = O(n / log(n))
         N   = number of subsamples (theory uses n choose b, but we will use a subset)
         The paper uses the Hausdorff distance on the original point clouds, we do not have access to this
-        so we will use the bottleneck distance between subsamples of the persistence diagrams. 
+        so we will use the bottleneck distance between subsamples of the persistence diagrams.
 
         This should be justified at some point.
 
@@ -47,10 +48,9 @@ class BNTest:
         with probability >= 1 - alpha.
         """
 
-
-        n   = len(self.dgm)
+        n = len(self.dgm)
         b = max(int(n / np.log(n)), 10)
-        N = min(int(subsample_percentage * math.comb(n, b)),self.max_depth)
+        N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
 
         T_j_array = np.zeros(N)
         for i in range(N):
@@ -66,28 +66,27 @@ class BNTest:
         Cols: birth, death, pers, p_value, significant
         """
         T_j_array = self._subsampling_method()
-        c_n       = 2.0 * float(np.quantile(T_j_array, 1.0 - self.alpha))
+        c_n = 2.0 * float(np.quantile(T_j_array, 1.0 - self.alpha))
 
-        births    = self.dgm[:, 0]
-        deaths    = self.dgm[:, 1]
-        pers      = deaths - births
-
+        births = self.dgm[:, 0]
+        deaths = self.dgm[:, 1]
+        pers = deaths - births
 
         # p_i = fraction of null distances >= pers_i / 2
         # (distance from bar i to the diagonal under L_inf)
-        p_values  = np.array([
+        p_values = np.array([
             float(np.mean(T_j_array >= p / 2)) for p in pers
         ])
 
-        rejected  = pers > math.sqrt(2)*c_n
+        rejected = pers > 2*c_n
 
         return {
-            "results_array" : np.column_stack([
-            births,
-            deaths,
-            pers,
-            p_values,
-            rejected.astype(float),
-        ]),
-        "threshold": math.sqrt(2)*c_n
+            "results_array": np.column_stack([
+                births,
+                deaths,
+                pers,
+                p_values,
+                rejected.astype(float),
+            ]),
+            "threshold": 2*c_n
         }
