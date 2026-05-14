@@ -60,7 +60,7 @@ class BNTest:
 
         return T_j_array
 
-    def results(self) -> np.ndarray:
+    def results(self) -> dict:
         """
         Returns a structured array with one row per bar.
         Cols: birth, death, pers, p_value, significant
@@ -81,10 +81,13 @@ class BNTest:
 
         rejected  = pers > c_n
 
-        return np.column_stack([
+        return {
+            "results_array" : np.column_stack([
             births,
             deaths,
             pers,
             p_values,
             rejected.astype(float),
-        ])
+        ]),
+        "threshold": c_n
+        }

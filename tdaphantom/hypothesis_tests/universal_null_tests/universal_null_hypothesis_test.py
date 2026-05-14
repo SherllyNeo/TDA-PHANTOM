@@ -35,6 +35,29 @@ class UNTest:
         else:
             finite_deaths      = self.dgm[np.isfinite(self.dgm[:, 1]), 1]
             self.max_threshold = float(np.max(finite_deaths)) if len(finite_deaths) > 0 else default_max
+        self.A = None
+        if self.complex == "VR":
+            self.A = 1  # for Vietoris-Rips complex
+        elif self.complex == "C":
+            self.A = 0.5
+        else:
+            raise ValueError(f"Unknown complex type {self.complex}. Use 'VR' or 'C'.")
+
+        births    = self.dgm[:, 0]
+        deaths    = np.where(np.isfinite(self.dgm[:, 1]), self.dgm[:, 1], self.max_threshold)
+        pi_values = deaths / births
+        self.L_hat = None
+
+        if self.L_hat_strategy == "median":
+            self.L_hat     = float(np.median(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
+        elif self.L_hat_strategy == "mean":
+            self.L_hat     = float(np.mean(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
+        else:
+            raise ValueError(
+                    f"Unknown L_hat_strategy "
+                    f"{self.L_hat_strategy}. Use 'mean' or 'median'."
+                    )
+
 
     def _correct_alpha(self) -> float:
         if self.correction_strategy == "Bonferroni":
@@ -47,15 +70,15 @@ class UNTest:
                     f"{self.correction_strategy}. Use 'Bonferroni' or 'BH'."
                     )
 
-    def _pi_min(self, x: float, A: float, L_hat: float) -> float:
+    def _pi_min(self, x: float) -> float:
         """
         minimum death/birth ratio such that the p-value for this diagram is under x
         """
-        B  = -EULER_MASCHERONI - A * L_hat
+        B  = -EULER_MASCHERONI - self.A * self.L_hat
         l_thresh = np.log(-np.log(x))
-        return float(np.exp(np.exp((l_thresh - B) / A)))
+        return float(np.exp(np.exp((l_thresh - B) / self.A)))
 
-    def _find_threshold_for_infinite_cycles(self, t_0: float, A: float, L_hat: float) -> float:
+    def _find_threshold_for_infinite_cycles(self, t_0: float) -> float:
         """
         This algorithm gives us the threshold we need to use when calculating p_values
         for infinite cycles
@@ -74,7 +97,7 @@ class UNTest:
             if len(D) == 0:
                 break
 
-            threshold  = self._pi_min(self.alpha / len(D), A, L_hat)
+            threshold  = self._pi_min(self.alpha / len(D))
             inf_births = D[D[:, 1] >= tau, 0]
             inf_births = inf_births[inf_births > 0]
 
@@ -99,30 +122,12 @@ class UNTest:
         for finite death it is defined using a log(log()) transform and normalised
         for infinite death values we let death = max_threshold
         """
-        A = None
-        if self.complex == "VR":
-            A = 1  # for Vietoris-Rips complex
-        elif self.complex == "C":
-            A = 0.5
-        else:
-            raise ValueError(f"Unknown complex type {self.complex}. Use 'VR' or 'C'.")
 
         births    = self.dgm[:, 0]
         deaths    = np.where(np.isfinite(self.dgm[:, 1]), self.dgm[:, 1], self.max_threshold)
         pi_values = deaths / births
-        L_hat = None
 
-        if self.L_hat_strategy == "median":
-            L_hat     = float(np.median(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
-        elif self.L_hat_strategy == "mean":
-            L_hat     = float(np.mean(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
-        else:
-            raise ValueError(
-                    f"Unknown L_hat_strategy "
-                    f"{self.L_hat_strategy}. Use 'mean' or 'median'."
-                    )
-
-        tau                     = self._find_threshold_for_infinite_cycles(self.max_threshold, A,L_hat)
+        tau                     = self._find_threshold_for_infinite_cycles(self.max_threshold)
         inf_mask                = ~np.isfinite(self.dgm[:, 1])
         pi_values[inf_mask]     = tau / births[inf_mask]
 
@@ -130,7 +135,7 @@ class UNTest:
         valid                   = (births > 0) & (pi_values > 1.0)
         log_log_pi[valid]       = np.log(np.log(pi_values[valid]))
 
-        l_values = A * log_log_pi - EULER_MASCHERONI - A * L_hat
+        l_values = self.A * log_log_pi - EULER_MASCHERONI - self.A * self.L_hat
         return l_values
 
     def _calculate_p_values_for_persistence_diagram(self) -> np.ndarray:
@@ -171,7 +176,7 @@ class UNTest:
 
         return rejected
 
-    def results(self) -> np.ndarray:
+    def results(self) -> dict:
         """
         Returns a structured array with one row per bar.
         Cols: birth, death, pi, p_value, significant
@@ -185,10 +190,30 @@ class UNTest:
             deaths / births,
             self.max_threshold / births,
         )
-        return np.column_stack([
+        if self.correction_strategy == "Bonferroni":
+            alpha_thresh = self._correct_alpha()
+
+        elif self.correction_strategy == "BH":
+            # alpha_thresh = k/m * alpha where k = number of rejections
+            # this is the BH threshold that was actually applied 
+            m = len(p_values)
+            k = int(rejected.sum())
+            if k > 0:
+                alpha_thresh = (k / m) * self.alpha
+            else:
+                alpha_thresh = 0.0   # nothing rejected, threshold is below all bars
+
+        threshold = self._pi_min(alpha_thresh)
+
+        return {
+        "results_array": np.column_stack([
             births,
             deaths,
             pi_values,
             p_values,
             rejected.astype(float),
-        ])
+        ]),
+        "threshold": threshold
+
+
+        }

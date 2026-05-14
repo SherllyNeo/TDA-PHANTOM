@@ -117,52 +117,57 @@ class Phantom:
                 f"Phantom({dim_name}, {len(self.dgm)} bars: "
                         f"{n_fin} finite, {n_inf} infinite)"
                 )
-
     def hypothesis_test(
-            self,
-            alpha:             float     = 0.05,
-            methods:           List[str] = ["universal_null","bottleneck"],
-            correction_method: str       = "BH",
-            ) -> dict:
+        self,
+        alpha:             float     = 0.05,
+        methods:           list[str] = ["universal_null", "bottleneck"],
+        correction_method: str       = "BH",
+        ) -> dict:
         """
         Calculates the p_values and checks significance for the persistence diagrams.
         Alpha is the significance.
-        Methods include: 
-            universal_null test by Omer Bobrowski & Primoz Skraba 
+        Methods include:
+            universal_null test by Omer Bobrowski & Primoz Skraba
+            bottleneck test by Fasy et al.
         """
         if not isinstance(alpha, float):
             raise TypeError(
-                    f"alpha must be a float, got {type(alpha).__name__}."
-                    )
+                f"alpha must be a float, got {type(alpha).__name__}."
+            )
         if alpha <= 0 or alpha >= 1:
             raise ValueError(
-                    f"alpha, the significance, must be between 0 and 1, got alpha={alpha}."
-                    )
+                f"alpha, the significance, must be between 0 and 1, got alpha={alpha}."
+            )
 
         results = {}
 
         if "universal_null" in methods:
-            test             = UNTest(
-                    dgm                 = self.dgm,
-                    k                   = self.k,
-                    alpha               = alpha,
-                    correction_strategy = correction_method,
-                    )
+            test = UNTest(
+                dgm                 = self.dgm,
+                k                   = self.k,
+                alpha               = alpha,
+                correction_strategy = correction_method,
+            )
             results["universal_null"] = test.results()
 
         if "bottleneck" in methods:
             test = BNTest(
-                    dgm                 = self.dgm,
-                    k                   = self.k,
-                    alpha               = alpha,
-                    )
+                dgm   = self.dgm,
+                k     = self.k,
+                alpha = alpha,
+            )
             results["bottleneck"] = test.results()
 
         self._cached_results = results
-
         return results
-    
-    def display_results(self, results: np.ndarray = None, method: str = "all", plot: str = "both") -> None:
+
+
+    def display_results(
+        self,
+        results: dict = None,
+        method:  str  = "all",
+        plot:    str  = "both",
+    ) -> None:
         """
         Visualise hypothesis test results
         """
@@ -192,25 +197,42 @@ class Phantom:
         fig.suptitle(f"H_{self.k} persistence results", fontsize=14)
 
         for row, mname in enumerate(methods_to_plot):
-            arr    = results[mname]
-            births = arr[:, 0]
-            deaths = arr[:, 1]
+            res    = results[mname]
+            results_array    = res["results_array"]
+            thr    = res.get("threshold", np.nan)
+            births = results_array[:, 0]
+            deaths = results_array[:, 1]
             pers   = deaths - births
-            sig    = arr[:, 4].astype(bool)
+            sig    = results_array[:, 4].astype(bool)
             ax_idx = 0
 
             if plot in ("diagram", "both"):
                 ax  = axes[row, ax_idx]
                 lim = deaths[np.isfinite(deaths)].max() * 1.05
-                ax.plot([0, lim], [0, lim], "k--", lw=0.8, alpha=0.4)
+                xs  = np.linspace(0, lim, 300)
+
+                ax.plot([0, lim], [0, lim], "k--", lw=0.8, alpha=0.4, label="diagonal")
+
+                # significance band — parallel to diagonal at offset = threshold
+                if not np.isnan(thr):
+                    ax.plot(xs, xs + thr, color="steelblue", lw=1.2,
+                            linestyle="--", alpha=0.7,
+                            label=f"threshold (pers={thr:.3f})")
+                    ax.fill_between(xs, xs, xs + thr,
+                                    color="steelblue", alpha=0.07,
+                                    label="noise band")
+
                 ax.scatter(births[~sig], deaths[~sig], s=8,  alpha=0.4,
                            color="steelblue", label="noise")
                 ax.scatter(births[sig],  deaths[sig],  s=60, alpha=0.9,
                            color="crimson", label=f"significant ({sig.sum()})", zorder=5)
+
                 ax.set_xlabel("birth")
                 ax.set_ylabel("death")
                 ax.set_title(f"{mname} — persistence diagram")
                 ax.set_aspect("equal")
+                ax.set_xlim(0, lim)
+                ax.set_ylim(0, lim)
                 ax.legend(fontsize=8)
                 ax_idx += 1
 
@@ -223,6 +245,15 @@ class Phantom:
                     lw    = 3.5        if sig[idx] else 1.0
                     ax.hlines(rank, births[idx], deaths[idx],
                               colors=color, linewidth=lw, alpha=av)
+
+                # draw threshold as vertical line at birth + threshold
+                # (a bar is significant when its length > threshold)
+                if not np.isnan(thr):
+                    ax.axvline(thr, color="steelblue", lw=1.2,
+                               linestyle="--", alpha=0.7,
+                               label=f"min sig pers={thr:.3f}")
+                    ax.legend(fontsize=8)
+
                 ax.set_xlabel("filtration value ε")
                 ax.set_ylabel("bar rank")
                 ax.set_title(f"{mname} — barcode ({sig.sum()} significant)")
