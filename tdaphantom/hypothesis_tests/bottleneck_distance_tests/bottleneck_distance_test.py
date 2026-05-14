@@ -66,7 +66,7 @@ class BNTest:
         Cols: birth, death, pers, p_value, significant
         """
         T_j_array = self._subsampling_method()
-        c_n = 2.0 * float(np.quantile(T_j_array, 1.0 - self.alpha))
+        c_n = float(np.quantile(T_j_array, 1.0 - self.alpha))
 
         births = self.dgm[:, 0]
         deaths = self.dgm[:, 1]
@@ -88,5 +88,5 @@ class BNTest:
                 p_values,
                 rejected.astype(float),
             ]),
-            "threshold": 2*c_n
+            "threshold": math.sqrt(2)*c_n  # used for diagram
         }
