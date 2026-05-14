@@ -25,68 +25,68 @@ class Phantom:
 
         if not isinstance(k, (int, np.integer)):
             raise TypeError(
-                    f"k must be an integer, got {type(k).__name__}."
-                    )
+                f"k must be an integer, got {type(k).__name__}."
+            )
         if k < 0:
             raise ValueError(
-                    f"k must be non-negative, got k={k}."
-                    )
+                f"k must be non-negative, got k={k}."
+            )
 
         try:
             dgm = np.asarray(dgm, dtype=float)
         except (TypeError, ValueError) as e:
             raise TypeError(
-                    f"dgm could not be converted to a numpy float array: {e}"
-                    ) from e
+                f"dgm could not be converted to a numpy float array: {e}"
+            ) from e
 
         if dgm.ndim != 2:
             raise ValueError(
-                    f"dgm must be a 2D array of shape (n, 2), "
-                    f"got shape {dgm.shape}."
-                    )
+                f"dgm must be a 2D array of shape (n, 2), "
+                f"got shape {dgm.shape}."
+            )
         if dgm.shape[1] != 2:
             raise ValueError(
-                    f"dgm must have exactly 2 columns [birth, death] got {dgm.shape[1]} columns."
-                    )
+                f"dgm must have exactly 2 columns [birth, death] got {dgm.shape[1]} columns."
+            )
 
         if dgm.shape[0] == 0:
             warnings.warn(
-                    "dgm is empty. All tests will return trivially ",
-                    UserWarning, stacklevel=2,
-                    )
+                "dgm is empty. All tests will return trivially ",
+                UserWarning, stacklevel=2,
+            )
 
         births = dgm[:, 0]
         deaths = dgm[:, 1]
 
         if not np.all(np.isfinite(births)):
             raise ValueError(
-                    f"All birth values must be finite. Found {np.sum(~np.isfinite(births))} non-finite birth(s)."
-                    )
+                f"All birth values must be finite. Found {np.sum(~np.isfinite(births))} non-finite birth(s)."
+            )
 
         if np.any(births < 0):
             raise ValueError(
-                    f"All birth values must be positive. Found {np.sum(births < 0)} negative birth(s)."
-                    )
+                f"All birth values must be positive. Found {np.sum(births < 0)} negative birth(s)."
+            )
 
         finite_mask = np.isfinite(deaths)
         n_bad = np.sum(deaths[finite_mask] <= births[finite_mask])
         if n_bad > 0:
             raise ValueError(
-                    f"All death values must be strictly greater than their corresponding birth values. Found {n_bad} bar(s) where death <= birth."
-                    )
+                f"All death values must be strictly greater than their corresponding birth values. Found {n_bad} bar(s) where death <= birth."
+            )
 
         if np.any(np.isnan(dgm)):
             raise ValueError(
-                    "dgm contains NaN values. Deaths may be np.inf but not NaN."
-                    )
+                "dgm contains NaN values. Deaths may be np.inf but not NaN."
+            )
 
         # H_0 specific: should have only one infinite bar
         n_inf = int(np.sum(~np.isfinite(deaths)))
         if k == 0 and n_inf != 1:
             warnings.warn(
-                    f"H_0 diagrams contain exactly 1 infinite bar. The last surviving component. Found {n_inf}.",
-                    UserWarning, stacklevel=2,
-                    )
+                f"H_0 diagrams contain exactly 1 infinite bar. The last surviving component. Found {n_inf}.",
+                UserWarning, stacklevel=2,
+            )
 
         self.dgm = dgm
         self.k = k
@@ -114,15 +114,16 @@ class Phantom:
         n_inf = len(self.infinite)
         dim_name = f"H_{self.k}"
         return (
-                f"Phantom({dim_name}, {len(self.dgm)} bars: "
-                        f"{n_fin} finite, {n_inf} infinite)"
-                )
+            f"Phantom({dim_name}, {len(self.dgm)} bars: "
+            f"{n_fin} finite, {n_inf} infinite)"
+        )
+
     def hypothesis_test(
         self,
-        alpha:             float     = 0.05,
+        alpha:             float = 0.05,
         methods:           list[str] = ["universal_null", "bottleneck"],
-        correction_method: str       = "BH",
-        ) -> dict:
+        correction_method: str = "BH",
+    ) -> dict:
         """
         Calculates the p_values and checks significance for the persistence diagrams.
         Alpha is the significance.
@@ -143,84 +144,97 @@ class Phantom:
 
         if "universal_null" in methods:
             test = UNTest(
-                dgm                 = self.dgm,
-                k                   = self.k,
-                alpha               = alpha,
-                correction_strategy = correction_method,
+                dgm=self.dgm,
+                k=self.k,
+                alpha=alpha,
+                correction_strategy=correction_method,
             )
             results["universal_null"] = test.results()
 
         if "bottleneck" in methods:
             test = BNTest(
-                dgm   = self.dgm,
-                k     = self.k,
-                alpha = alpha,
+                dgm=self.dgm,
+                k=self.k,
+                alpha=alpha,
             )
             results["bottleneck"] = test.results()
 
         self._cached_results = results
         return results
 
-
     def display_results(
         self,
         results: dict = None,
-        method:  str  = "all",
-        plot:    str  = "both",
+        method:  str = "all",
+        plot:    str = "both",
     ) -> None:
         """
         Visualise hypothesis test results
         """
         if results is None:
             if not hasattr(self, "_cached_results"):
-                raise ValueError("require results passed in or a previously ran hypothesis_test.")
+                raise ValueError(
+                    "require results passed in or a previously ran hypothesis_test.")
             results = self._cached_results
 
         if not isinstance(results, dict):
-            raise ValueError("results must be a dict returned by hypothesis_test.")
+            raise ValueError(
+                "results must be a dict returned by hypothesis_test.")
 
         if plot not in ("diagram", "barcode", "both"):
-            raise ValueError(f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}.")
+            raise ValueError(
+                f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}.")
 
         available = list(results.keys())
         if method == "all":
             methods_to_plot = available
         else:
             if method not in available:
-                raise ValueError(f"method {method!r} not found in results. Available: {available}")
+                raise ValueError(
+                    f"method {method!r} not found in results. Available: {available}")
             methods_to_plot = [method]
 
         n_cols = 2 if plot == "both" else 1
         n_rows = len(methods_to_plot)
 
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5 * n_rows), squeeze=False)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(
+            6 * n_cols, 5 * n_rows), squeeze=False)
         fig.suptitle(f"H_{self.k} persistence results", fontsize=14)
 
         for row, mname in enumerate(methods_to_plot):
-            res    = results[mname]
-            results_array    = res["results_array"]
-            thr    = res.get("threshold", np.nan)
+            res = results[mname]
+            results_array = res["results_array"]
+            thr = res.get("threshold", np.nan)
             births = results_array[:, 0]
             deaths = results_array[:, 1]
-            pers   = deaths - births
-            sig    = results_array[:, 4].astype(bool)
+            pers = deaths - births
+            sig = results_array[:, 4].astype(bool)
             ax_idx = 0
 
             if plot in ("diagram", "both"):
-                ax  = axes[row, ax_idx]
+                ax = axes[row, ax_idx]
                 lim = deaths[np.isfinite(deaths)].max() * 1.05
-                xs  = np.linspace(0, lim, 300)
+                xs = np.linspace(0, lim, 300)
 
-                ax.plot([0, lim], [0, lim], "k--", lw=0.8, alpha=0.4, label="diagonal")
-
-                # significance band — parallel to diagonal at offset = threshold
+                ax.plot([0, lim], [0, lim], "k--", lw=0.8,
+                        alpha=0.4, label="diagonal")
                 if not np.isnan(thr):
-                    ax.plot(xs, xs + thr, color="steelblue", lw=1.2,
-                            linestyle="--", alpha=0.7,
-                            label=f"threshold (pers={thr:.3f})")
-                    ax.fill_between(xs, xs, xs + thr,
-                                    color="steelblue", alpha=0.07,
-                                    label="noise band")
+                    if mname == "universal_null":
+                        # d = b * pi*  — ray from origin
+                        ax.plot(xs, thr * xs, color="steelblue", lw=1.2,
+                                linestyle="--", alpha=0.7,
+                                label=f"π* = {thr:.2f}")
+                        ax.fill_between(xs, xs, thr * xs,
+                                        color="steelblue", alpha=0.07,
+                                        label="noise band")
+                    else:
+                        # d = b + 2*c_n  — parallel to diagonal
+                        ax.plot(xs, xs + thr, color="steelblue", lw=1.2,
+                                linestyle="--", alpha=0.7,
+                                label=f"2c_n = {thr:.3f}")
+                        ax.fill_between(xs, xs, xs + thr,
+                                        color="steelblue", alpha=0.07,
+                                        label="noise band")
 
                 ax.scatter(births[~sig], deaths[~sig], s=8,  alpha=0.4,
                            color="steelblue", label="noise")
@@ -237,12 +251,12 @@ class Phantom:
                 ax_idx += 1
 
             if plot in ("barcode", "both"):
-                ax    = axes[row, ax_idx]
+                ax = axes[row, ax_idx]
                 order = np.argsort(pers)[::-1]
                 for rank, idx in enumerate(order):
-                    color = "crimson"  if sig[idx] else "steelblue"
-                    av    = 0.9        if sig[idx] else 0.25
-                    lw    = 3.5        if sig[idx] else 1.0
+                    color = "crimson" if sig[idx] else "steelblue"
+                    av = 0.9 if sig[idx] else 0.25
+                    lw = 3.5 if sig[idx] else 1.0
                     ax.hlines(rank, births[idx], deaths[idx],
                               colors=color, linewidth=lw, alpha=av)
 
