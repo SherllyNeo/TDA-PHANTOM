@@ -21,7 +21,7 @@ class Phantom:
         etc
     """
 
-    def __init__(self, dgm: np.ndarray, k: int):
+    def __init__(self, dgm: np.ndarray, k: int, point_cloud, is_distance_matrix):
 
         if not isinstance(k, (int, np.integer)):
             raise TypeError(
@@ -90,6 +90,19 @@ class Phantom:
 
         self.dgm = dgm
         self.k = k
+        self.s_n = point_cloud
+        self.is_dist = is_distance_matrix
+        self.allowed_methods = ["universal_null",
+                                "bottleneck", "bottleneck:subsample",
+                                "bottleneck:shells", "bottleneck:density", "bottleneck:concentration"]
+        self.allowed_methods_descriptions = {
+            "universal_null": "This assumes the noise distribution follows an Lgubmel distribution as conjectured by ..",
+            "bottleneck": "This defaults to the subsample method",
+            "bottleneck:subsample": "This method comes from ...",
+            "bottleneck:shells": "This method comes from ... and ",
+            "bottleneck:density": "This method comes from ... and ",
+            "bottleneck:concentration": "This method comes from ... and "
+        }
 
     @property
     def finite(self) -> np.ndarray:
@@ -106,9 +119,6 @@ class Phantom:
         """death − birth - may contain infinite persistence """
         return self.dgm[:, 1] - self.dgm[:, 0]
 
-    def __len__(self) -> int:
-        return len(self.dgm)
-
     def __repr__(self) -> str:
         n_fin = len(self.finite)
         n_inf = len(self.infinite)
@@ -117,6 +127,12 @@ class Phantom:
             f"Phantom({dim_name}, {len(self.dgm)} bars: "
             f"{n_fin} finite, {n_inf} infinite)"
         )
+
+    def calculate_dgm_from_point_cloud(self, point_cloud=None, is_distance_matrix=None):
+        if point_cloud == None:
+            point_cloud = self.point_cloud
+        # TODO
+        # calculate self.dgm
 
     def hypothesis_test(
         self,
@@ -140,6 +156,11 @@ class Phantom:
                 f"alpha, the significance, must be between 0 and 1, got alpha={alpha}."
             )
 
+        if any(methods) not in self.allowed_methods:
+            raise ValueError(
+                f"methods must be one of {self.allowed_methods}"
+            )
+
         results = {}
 
         if "universal_null" in methods:
@@ -148,16 +169,57 @@ class Phantom:
                 k=self.k,
                 alpha=alpha,
                 correction_strategy=correction_method,
+                method="universal_null:median"
             )
-            results["universal_null"] = test.results()
+            results["universal_null:median"] = test.results()
 
-        if "bottleneck" in methods:
-            test = BNTest(
+        if "universal_null:median" in methods:
+            test = UNTest(
                 dgm=self.dgm,
                 k=self.k,
                 alpha=alpha,
+                correction_strategy=correction_method,
+                method="universal_null:median"
             )
-            results["bottleneck"] = test.results()
+            results["universal_null:median"] = test.results()
+
+        if "universal_null:mean" in methods:
+            test = UNTest(
+                dgm=self.dgm,
+                k=self.k,
+                alpha=alpha,
+                correction_strategy=correction_method,
+                method="universal_null:mean"
+            )
+            results["universal_null:median"] = test.results()
+
+        if "bottleneck" in methods:
+            if self.point_cloud:
+                test = BNTest(
+                    point_cloud=self.point_cloud,
+                    k=self.k,
+                    alpha=alpha,
+                    method="bottleneck:subsample"
+                )
+                results["bottleneck:subsample"] = test.results()
+            else:
+                raise ValueError(
+                    f"Point cloud or distance matrix must be provided for all bottleneck methods"
+                )
+
+        if "bottleneck:subsample" in methods:
+            if self.point_cloud:
+                test = BNTest(
+                    point_cloud=self.point_cloud,
+                    k=self.k,
+                    alpha=alpha,
+                    method="bottleneck:subsample"
+                )
+                results["bottleneck:subsample"] = test.results()
+            else:
+                raise ValueError(
+                    f"Point cloud or distance matrix must be provided for all bottleneck methods"
+                )
 
         self._cached_results = results
         return results
@@ -219,7 +281,7 @@ class Phantom:
                 ax.plot([0, lim], [0, lim], "k--", lw=0.8,
                         alpha=0.4, label="diagonal")
                 if not np.isnan(thr):
-                    if mname == "universal_null":
+                    if "universal_null" in mname:
                         # d = b * pi*  — ray from origin
                         ax.plot(xs, thr * xs, color="steelblue", lw=1.2,
                                 linestyle="--", alpha=0.7,

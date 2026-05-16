@@ -13,8 +13,8 @@ class UNTest:
         complex:             str = "VR",
         correction_strategy: str = "BH",
         max_depth:           int = 1000,
-        L_hat_strategy:     str = "median",
         max_threshold=None,
+        method: str = "universal_null:median"
     ):
         """
         Implimentation of the universal null hypothesis test from
@@ -27,7 +27,6 @@ class UNTest:
         self.max_depth = max_depth
         self.alpha = alpha
         self.correction_strategy = correction_strategy
-        self.L_hat_strategy = L_hat_strategy
 
         default_max = 10.0  # max epsilon for ripser for example
         if max_threshold is not None:
@@ -51,16 +50,16 @@ class UNTest:
         pi_values = deaths / births
         self.L_hat = None
 
-        if self.L_hat_strategy == "median":
+        if self.method == "universal_null:median":
             self.L_hat = float(
                 np.median(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
-        elif self.L_hat_strategy == "mean":
+        elif self.method == "universal_null:mean":
             self.L_hat = float(
                 np.mean(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
         else:
             raise ValueError(
                 f"Unknown L_hat_strategy "
-                f"{self.L_hat_strategy}. Use 'mean' or 'median'."
+                f"{self.method}. Use method 'universal_null:mean' or 'universal_null:median'."
             )
 
     def _correct_alpha(self) -> float:
