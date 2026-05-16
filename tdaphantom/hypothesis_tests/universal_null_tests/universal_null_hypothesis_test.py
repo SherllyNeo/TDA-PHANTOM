@@ -1,5 +1,6 @@
 import numpy as np
 from typing import List
+import warnings
 
 EULER_MASCHERONI = 0.57721566490153
 
@@ -21,20 +22,28 @@ class UNTest:
         'A universal null‑distribution for topological data analysis'
         by Omer Bobrowski & Primoz Skraba
         """
-        self.dgm = dgm
+        self.dgm = np.copy(dgm)
         self.k = k
         self.complex = complex  # currently only VR is supported
         self.max_depth = max_depth
         self.alpha = alpha
         self.correction_strategy = correction_strategy
+        self.method = method
 
         default_max = 10.0  # max epsilon for ripser for example
+
         if max_threshold is not None:
             self.max_threshold = max_threshold
         else:
             finite_deaths = self.dgm[np.isfinite(self.dgm[:, 1]), 1]
-            self.max_threshold = float(np.max(finite_deaths)) if len(
-                finite_deaths) > 0 else default_max
+            self.max_threshold = float(
+                np.max(finite_deaths))*10 if len(finite_deaths) > 0 else default_max
+            warnings.warn(
+                "max_threshold not supplied — falling back to max finite death * 10. "
+                "Pass max_eps from your Rips filtration for correct results.",
+                UserWarning,
+            )
+
         self.A = None
         if self.complex == "VR":
             self.A = 1  # for Vietoris-Rips complex
@@ -44,28 +53,24 @@ class UNTest:
             raise ValueError(
                 f"Unknown complex type {self.complex}. Use 'VR' or 'C'.")
 
-        births = self.dgm[:, 0]
-        deaths = np.where(np.isfinite(
-            self.dgm[:, 1]), self.dgm[:, 1], self.max_threshold)
-        pi_values = deaths / births
-        self.L_hat = None
+        finite_mask = np.isfinite(self.dgm[:, 1])
+        births_f = self.dgm[finite_mask, 0]
+        pi_values_f = self.dgm[finite_mask, 1] / births_f
+
+        valid = (births_f > 0) & (pi_values_f > 1.0)
+        log_log_pi = np.log(np.log(pi_values_f[valid]))
 
         if self.method == "universal_null:median":
-            self.L_hat = float(
-                np.median(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
+            self.L_hat = float(np.median(log_log_pi))
         elif self.method == "universal_null:mean":
-            self.L_hat = float(
-                np.mean(np.log(np.log(pi_values[(births > 0) & (pi_values > 1.0)]))))
-        else:
-            raise ValueError(
-                f"Unknown L_hat_strategy "
-                f"{self.method}. Use method 'universal_null:mean' or 'universal_null:median'."
-            )
+            self.L_hat = float(np.mean(log_log_pi))
 
     def _correct_alpha(self) -> float:
         if self.correction_strategy == "Bonferroni":
             return self.alpha / len(self.dgm)
         elif self.correction_strategy == "BH":
+            return self.alpha
+        elif self.correction_strategy == None:
             return self.alpha
         else:
             raise ValueError(
@@ -176,7 +181,8 @@ class UNTest:
             rejected = np.zeros(m, dtype=bool)
             if len(below) > 0:
                 rejected[order[:below[-1] + 1]] = True
-
+        elif self.correction_strategy == None:
+            rejected = p_values < self.alpha
         else:
             raise ValueError(
                 f"Unknown multiple testing correction strategy "
@@ -190,8 +196,9 @@ class UNTest:
         Returns a structured array with one row per bar.
         Cols: birth, death, pi, p_value, significant
         """
-        p_values = self._calculate_p_values_for_persistence_diagram()
-        rejected = p_values < self._correct_alpha()
+        rejected = self.calculate_significance_for_persistence_diagram()
+        p_values = self.p_values
+
         births = self.dgm[:, 0]
         deaths = self.dgm[:, 1]
         pi_values = np.where(
@@ -199,18 +206,21 @@ class UNTest:
             deaths / births,
             self.max_threshold / births,
         )
+
         if self.correction_strategy == "Bonferroni":
             alpha_thresh = self._correct_alpha()
-
         elif self.correction_strategy == "BH":
             # alpha_thresh = k/m * alpha where k = number of rejections
             # this is the BH threshold that was actually applied
             m = len(p_values)
             k = int(rejected.sum())
+            print(f"m: {m}, k - number of rejections: {k}")
             if k > 0:
                 alpha_thresh = (k / m) * self.alpha
             else:
                 alpha_thresh = 0.0   # nothing rejected, threshold is below all bars
+        elif self.correction_strategy == None:
+            alpha_thresh = self.alpha
 
         threshold = self._pi_min(alpha_thresh)
 
@@ -222,7 +232,5 @@ class UNTest:
                 p_values,
                 rejected.astype(float),
             ]),
-            "threshold": threshold
-
-
+            "threshold": threshold,
         }

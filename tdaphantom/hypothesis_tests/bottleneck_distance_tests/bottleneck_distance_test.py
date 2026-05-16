@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List
+from typing import List, Optional
 import math
 import random
 import gudhi
@@ -10,12 +10,12 @@ class BNTest:
     def __init__(
         self,
         point_cloud:         np.ndarray,
-        is_distance_matrix:     bool,
-        dgm:                 np.ndarray,
-        k:                   int,
+        is_distance_matrix:  bool = False,
+        dgm:                 np.ndarray = None,
+        k:                   int = 1,
         alpha:               float = 0.05,
         complex:             str = "VR",
-        max_depth:           int = 100000,
+        max_depth:           int = 100,  # low and slow
         method: str = "bottleneck:subsample"
     ):
         """
@@ -23,6 +23,7 @@ class BNTest:
         'confidence sets for persistence diagrams'
         by Fasy et al
         """
+        self.method = method
         self.method_calls = {"bottleneck:subsample": self.subsample}
         self.pc = point_cloud
         self.dgm = dgm
@@ -119,7 +120,12 @@ class BNTest:
 
         n = len(self.dgm)
         b = max(int(n / np.log(n)), 10)
-        N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
+        b = min(b, 50)
+
+        try:
+            N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
+        except OverflowError:
+            N = self.max_depth
 
         T_j_array = np.zeros(N)
         for i in range(N):
@@ -138,11 +144,17 @@ class BNTest:
         """
         n = len(self.pc)
         b = max(int(n / np.log(n)), 10)
-        N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
+        b = min(b, 50)
+        try:
+            N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
+        except OverflowError:
+            N = self.max_depth
         all_idx = np.arange(n)
+        print(f"N: {N}")
 
         T_j_array = np.zeros(N)
         for i in range(N):
+            print(f"{i}/{N}, {round(i*100/N, 2)}%")
             idx = np.random.choice(n, size=b, replace=False)
             if self.is_distance_matrix:
                 T_j_array[i] = self.hausdorff_dist_matrix(idx, all_idx)
@@ -157,7 +169,7 @@ class BNTest:
         """
         T_j_array = self._subsampling_method()
         c_n = float(np.quantile(T_j_array, 1.0 - self.alpha))
-        return c_n
+        return c_n, T_j_array
 
     def results(self) -> dict:
         """
@@ -165,8 +177,9 @@ class BNTest:
         Cols: birth, death, pers, p_value, significant
         """
         c_n = -np.inf
-        if method in self.method_calls.keys():
-            c_n = self.method_calls[method]()
+        if self.method in self.method_calls.keys():
+            # ugly fix, make elegant later
+            c_n, T_j_array = self.method_calls[self.method]()
 
         births = self.dgm[:, 0]
         deaths = self.dgm[:, 1]

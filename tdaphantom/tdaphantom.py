@@ -2,224 +2,450 @@ import numpy as np
 import warnings
 from .hypothesis_tests.universal_null_tests.universal_null_hypothesis_test import UNTest
 from .hypothesis_tests.bottleneck_distance_tests.bottleneck_distance_test import BNTest
-from typing import List
 import matplotlib.pyplot as plt
+import gudhi
+from ripser import ripser
 
 
 class Phantom:
     """
     Persistence diagram container.
 
-    dgm: np.ndarray, shape (n, 2)
-        Persistence diagram. Each row is [birth, death].
-        Infinite deaths (np.inf) are permitted.
-    k: int
-        Homological dimension of the diagram.
-        0 = connected components (H_0)
-        1 = loops / holes      (H_1)
-        2 = voids / cavities   (H_2)
-        etc
+    point_cloud : np.ndarray
+        Either an (n, d) point cloud or an (n, n) distance matrix.
+
+    is_distance_matrix : bool
+        Set True when point_cloud is a distance matrix.
+
+    dgms : dict[int, np.ndarray]
+        Persistence diagrams keyed by homological dimension.
+        Each value has shape (n, 2) — columns are [birth, death].
+        Populated by calculate_dgms_from_point_cloud.
     """
 
-    def __init__(self, dgm: np.ndarray, k: int, point_cloud, is_distance_matrix):
+    def __init__(
+        self,
+        point_cloud: np.ndarray,
+        is_distance_matrix: bool = False,
+    ):
+        self.pc: np.ndarray = point_cloud
+        self.is_dist: bool = is_distance_matrix
+        self.dgms: dict[int, np.ndarray] = {}
+        self._cached_results: dict = {}
+        self.k: int = None
 
-        if not isinstance(k, (int, np.integer)):
-            raise TypeError(
-                f"k must be an integer, got {type(k).__name__}."
-            )
-        if k < 0:
-            raise ValueError(
-                f"k must be non-negative, got k={k}."
-            )
-
-        try:
-            dgm = np.asarray(dgm, dtype=float)
-        except (TypeError, ValueError) as e:
-            raise TypeError(
-                f"dgm could not be converted to a numpy float array: {e}"
-            ) from e
-
-        if dgm.ndim != 2:
-            raise ValueError(
-                f"dgm must be a 2D array of shape (n, 2), "
-                f"got shape {dgm.shape}."
-            )
-        if dgm.shape[1] != 2:
-            raise ValueError(
-                f"dgm must have exactly 2 columns [birth, death] got {dgm.shape[1]} columns."
-            )
-
-        if dgm.shape[0] == 0:
-            warnings.warn(
-                "dgm is empty. All tests will return trivially ",
-                UserWarning, stacklevel=2,
-            )
-
-        births = dgm[:, 0]
-        deaths = dgm[:, 1]
-
-        if not np.all(np.isfinite(births)):
-            raise ValueError(
-                f"All birth values must be finite. Found {np.sum(~np.isfinite(births))} non-finite birth(s)."
-            )
-
-        if np.any(births < 0):
-            raise ValueError(
-                f"All birth values must be positive. Found {np.sum(births < 0)} negative birth(s)."
-            )
-
-        finite_mask = np.isfinite(deaths)
-        n_bad = np.sum(deaths[finite_mask] <= births[finite_mask])
-        if n_bad > 0:
-            raise ValueError(
-                f"All death values must be strictly greater than their corresponding birth values. Found {n_bad} bar(s) where death <= birth."
-            )
-
-        if np.any(np.isnan(dgm)):
-            raise ValueError(
-                "dgm contains NaN values. Deaths may be np.inf but not NaN."
-            )
-
-        # H_0 specific: should have only one infinite bar
-        n_inf = int(np.sum(~np.isfinite(deaths)))
-        if k == 0 and n_inf != 1:
-            warnings.warn(
-                f"H_0 diagrams contain exactly 1 infinite bar. The last surviving component. Found {n_inf}.",
-                UserWarning, stacklevel=2,
-            )
-
-        self.dgm = dgm
-        self.k = k
-        self.s_n = point_cloud
-        self.is_dist = is_distance_matrix
-        self.allowed_methods = ["universal_null",
-                                "bottleneck", "bottleneck:subsample",
-                                "bottleneck:shells", "bottleneck:density", "bottleneck:concentration"]
-        self.allowed_methods_descriptions = {
-            "universal_null": "This assumes the noise distribution follows an Lgubmel distribution as conjectured by ..",
-            "bottleneck": "This defaults to the subsample method",
-            "bottleneck:subsample": "This method comes from ...",
-            "bottleneck:shells": "This method comes from ... and ",
-            "bottleneck:density": "This method comes from ... and ",
-            "bottleneck:concentration": "This method comes from ... and "
+        self.allowed_methods: list[str] = [
+            "universal_null",
+            "universal_null:median",
+            "universal_null:mean",
+            "bottleneck",
+            "bottleneck:subsample",
+            "bottleneck:shells",
+            "bottleneck:density",
+            "bottleneck:concentration",
+        ]
+        self.allowed_methods_descriptions: dict[str, str] = {
+            "universal_null":           "Alias for universal_null:median.",
+            "universal_null:median":    "Assumes noise follows a Gumbel distribution (Bobrowski & Skraba); uses median normalisation.",
+            "universal_null:mean":      "Assumes noise follows a Gumbel distribution (Bobrowski & Skraba); uses mean normalisation.",
+            "bottleneck":               "Alias for bottleneck:subsample. All bottleneck methods aim to bound the bottleneck distance between your samples diagram and the ideal hypothetical diagram using confidence intervals. This is how the hypothesis test is designed.",
+            "bottleneck:subsample":     "Bootstrap confidence band via subsampling (Fasy et al.).",
+            "bottleneck:shells":        "Bottleneck test using shell decomposition.",
+            "bottleneck:density":       "Bottleneck test using density estimation.",
+            "bottleneck:concentration": "Bottleneck test using concentration inequalities.",
         }
 
-    @property
-    def finite(self) -> np.ndarray:
-        """Rows where death is finite """
-        return self.dgm[np.isfinite(self.dgm[:, 1])]
-
-    @property
-    def infinite(self) -> np.ndarray:
-        """Rows where death is infinite """
-        return self.dgm[~np.isfinite(self.dgm[:, 1])]
-
-    @property
-    def persistences(self) -> np.ndarray:
-        """death − birth - may contain infinite persistence """
-        return self.dgm[:, 1] - self.dgm[:, 0]
-
     def __repr__(self) -> str:
-        n_fin = len(self.finite)
-        n_inf = len(self.infinite)
-        dim_name = f"H_{self.k}"
+        sizes = {k: len(v) for k, v in self.dgms.items()}
         return (
-            f"Phantom({dim_name}, {len(self.dgm)} bars: "
-            f"{n_fin} finite, {n_inf} infinite)"
+            f"Phantom("
+            f"n_points={len(self.pc)}, "
+            f"is_distance_matrix={self.is_dist}, "
+            f"computed_dims={list(self.dgms.keys())}, "
+            f"diagram_sizes={sizes})"
         )
 
-    def calculate_dgm_from_point_cloud(self, point_cloud=None, is_distance_matrix=None):
-        if point_cloud == None:
-            point_cloud = self.point_cloud
-        # TODO
-        # calculate self.dgm
+    def calculate_dgms_from_point_cloud(
+        self,
+        point_cloud: np.ndarray = None,
+        is_distance_matrix: bool = None,
+        max_dim: int = None,
+        max_eps: float = None,
+        k: int = None,
+    ) -> dict[int, np.ndarray]:
+        """
+        Build a Vietoris-Rips complex and compute persistence diagrams for
+        every homological dimension 0 … max_dim.
+
+        max_dim defaults to k when provided, otherwise 1.  This lets
+        you write calculate_dgms_from_point_cloud(k=2) and have exactly
+        the diagrams needed for a subsequent hypothesis_test(k=2)
+
+        point_cloud : np.ndarray, optional
+            Overrides self.pc when provided.
+        is_distance_matrix : bool, optional
+            Overrides self.is_dist when provided.
+        max_dim : int, optional
+            Highest homological dimension to compute.
+            Defaults to k if given, otherwise 1.
+        max_eps : float, optional
+            Maximum edge length for the Rips filtration (default np.inf).
+        k : int, optional
+            Convenience alias: sets max_dim when max_dim is not
+            explicitly supplied.
+
+        Returns:
+            dict[int, np.ndarray]
+                Persistence diagrams keyed by homological dimension.
+        """
+
+        if point_cloud is None:
+            point_cloud = self.pc
+        if is_distance_matrix is None:
+            is_distance_matrix = self.is_dist
+        if max_dim is None:
+            max_dim = k if k is not None else 1
+
+        # Default max_eps to the diameter of the data (matching ripser's
+        # behaviour).  np.inf is intentionally avoided: gudhi will enumerate
+        # every possible simplex up to max_dim+1, which is O(n^(max_dim+2))
+        # and will exhaust memory on any moderately sized point cloud.
+        if max_eps is None:
+            if is_distance_matrix:
+                max_eps = float(np.max(point_cloud))
+            else:
+                # Diameter via broadcasting; O(n²) memory — warn for large inputs.
+                if len(point_cloud) > 5000:
+                    warnings.warn(
+                        f"Computing the diameter of {len(point_cloud)} points "
+                        f"requires an O(n²) distance matrix. Consider passing "
+                        f"max_eps explicitly to avoid this.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                D = np.linalg.norm(
+                    point_cloud[:, None, :] - point_cloud[None, :, :], axis=-1
+                )
+                max_eps = float(D.max())
+
+        self.max_eps = max_eps
+
+        if is_distance_matrix:
+            rc = gudhi.RipsComplex(
+                distance_matrix=point_cloud.tolist(),
+                max_edge_length=max_eps,
+                sparse=0.3,
+            )
+        else:
+            rc = gudhi.RipsComplex(
+                points=point_cloud.tolist(),
+                max_edge_length=max_eps,
+                sparse=0.3,
+            )
+
+        # create_simplex_tree needs max_dimension = max_dim + 1 to compute
+        # homology up to degree max_dim
+        st = rc.create_simplex_tree(max_dimension=max_dim + 1)
+        st.compute_persistence()
+
+        self.dgms = {}
+        for dim in range(max_dim + 1):
+            intervals = st.persistence_intervals_in_dimension(dim)
+            if len(intervals) == 0:
+                self.dgms[dim] = np.empty((0, 2))
+            else:
+                dgm = np.array(intervals, dtype=float)
+                # Remove degenerate bars (numerical artefacts)
+                self.dgms[dim] = dgm[dgm[:, 1] > dgm[:, 0]]
+
+        return self.dgms
+
+    def calculate_dgms_from_point_cloud_ripser(
+        self,
+        point_cloud: np.ndarray = None,
+        is_distance_matrix: bool = None,
+        max_dim: int = None,
+        max_eps: float = None,
+        k: int = None,
+    ) -> dict[int, np.ndarray]:
+        """
+        Ripser backend for computing persistence diagrams.  Equivalent
+        interface to calculate_dgms_from_point_cloud but uses ripser
+        instead of gudhi's RipsComplex.
+
+        Ripser is significantly faster than gudhi for Vietoris-Rips
+        persistence, especially at higher dimensions, because it exploits
+        the implicit representation of the Rips complex and uses
+        cohomology rather than homology internally.
+
+        point_cloud : np.ndarray, optional
+            Overrides self.pc when provided.
+        is_distance_matrix : bool, optional
+            Overrides self.is_dist when provided.
+        max_dim : int, optional
+            Highest homological dimension to compute.
+            Defaults to k if given, otherwise 1.
+        max_eps : float, optional
+            Maximum edge length / filtration threshold.
+            Defaults to the diameter of the data.
+        k : int, optional
+            sets max_dim when max_dim is not
+            explicitly supplied.
+
+        Returns
+        dict[int, np.ndarray]
+            Persistence diagrams keyed by homological dimension,
+            stored in ``self.dgms``.
+        """
+        if point_cloud is None:
+            point_cloud = self.pc
+        if is_distance_matrix is None:
+            is_distance_matrix = self.is_dist
+        if max_dim is None:
+            max_dim = k if k is not None else 1
+        if max_eps is None:
+            max_eps = np.inf  # ripser handles inf safely via its internal algorithms
+
+        result = ripser(
+            point_cloud,
+            maxdim=max_dim,
+            # thresh=max_eps,
+            distance_matrix=is_distance_matrix,
+        )
+
+        self.dgms = {}
+        for dim, dgm in enumerate(result["dgms"]):
+            if len(dgm) == 0:
+                self.dgms[dim] = np.empty((0, 2))
+            else:
+                dgm = np.array(dgm, dtype=float)
+                # Remove degenerate bars (numerical artefacts)
+                self.dgms[dim] = dgm[dgm[:, 1] > dgm[:, 0]]
+
+        self.max_eps = max_eps
+        return self.dgms
+
+    def display_dgms(
+        self,
+        dgms: np.ndarray = None,
+        plot: str = "both",
+    ) -> None:
+        """
+        Plot the computed persistence diagrams.
+
+        Each homological dimension is drawn in a distinct colour.  Call
+        calculate_dgms_from_point_cloud before this method or pass in a diagram.
+
+        plot : str
+            "diagram"  — persistence diagram only (birth vs death).
+            "barcode"  — barcode only (one horizontal bar per feature).
+            "both"     — diagram and barcode side by side (default).
+        """
+        if not self.dgms:
+            if not dgms:
+                raise ValueError(
+                    "No persistence diagrams found. "
+                    "Call calculate_dgms_from_point_cloud first."
+                    "Or pass in your own diagram with the form {0: dgm_0, 1: dgm_2, ...}"
+                )
+        if plot not in ("diagram", "barcode", "both"):
+            raise ValueError(
+                f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}."
+            )
+
+        dims = sorted(self.dgms.keys())
+        colours = plt.cm.tab10.colors
+
+        n_cols = 2 if plot == "both" else 1
+        fig, axes = plt.subplots(
+            1, n_cols, figsize=(6 * n_cols, 5), squeeze=False)
+
+        all_finite = np.concatenate(
+            [dgm[np.isfinite(dgm[:, 1])] for dgm in self.dgms.values()
+             if len(dgm) > 0],
+            axis=0,
+        ) if any(len(d) > 0 for d in self.dgms.values()) else np.empty((0, 2))
+
+        lim = all_finite[:, 1].max() * 1.05 if len(all_finite) else 1.0
+
+        if plot in ("diagram", "both"):
+            ax = axes[0, 0]
+            ax.plot([0, lim], [0, lim], "k--", lw=0.8,
+                    alpha=0.4, label="diagonal")
+
+            for dim in dims:
+                dgm = self.dgms[dim]
+                if len(dgm) == 0:
+                    continue
+                births = dgm[:, 0]
+                deaths = dgm[:, 1].copy()
+
+                inf_mask = ~np.isfinite(deaths)
+                deaths[inf_mask] = lim
+                colour = colours[dim % len(colours)]
+                ax.scatter(
+                    births, deaths,
+                    s=10, alpha=0.8, color=colour,
+                    label=f"H_{dim} ({len(dgm)})",
+                    zorder=3,
+                )
+
+                if inf_mask.any():
+                    ax.scatter(
+                        births[inf_mask], deaths[inf_mask],
+                        s=30, marker="^", color=colour, zorder=4,
+                    )
+
+            ax.set_xlabel("birth")
+            ax.set_ylabel("death")
+            ax.set_title("Persistence diagram")
+            ax.set_aspect("equal")
+            ax.set_xlim(0, lim)
+            ax.set_ylim(0, lim)
+            ax.legend(fontsize=8)
+
+        if plot in ("barcode", "both"):
+            ax = axes[0, 1 if plot == "both" else 0]
+
+            rank = 0
+            tick_positions = []
+            tick_labels = []
+
+            for dim in dims:
+                dgm = self.dgms[dim]
+                if len(dgm) == 0:
+                    continue
+                colour = colours[dim % len(colours)]
+
+                pers = dgm[:, 1] - dgm[:, 0]
+                order = np.argsort(pers)[::-1]
+                dim_start = rank
+
+                for idx in order:
+                    birth = dgm[idx, 0]
+                    death = dgm[idx, 1] if np.isfinite(dgm[idx, 1]) else lim
+                    ax.hlines(rank, birth, death, colors=colour,
+                              linewidth=1.5, alpha=0.8)
+                    rank += 1
+
+                mid = (dim_start + rank - 1) / 2
+                tick_positions.append(mid)
+                tick_labels.append(f"H_{dim}")
+
+            ax.set_xlabel("filtration value epsilon")
+            ax.set_yticks(tick_positions)
+            ax.set_yticklabels(tick_labels)
+            ax.set_title("Barcode")
+            ax.invert_yaxis()
+
+        plt.tight_layout()
+        plt.show()
 
     def hypothesis_test(
         self,
-        alpha:             float = 0.05,
-        methods:           list[str] = ["universal_null", "bottleneck"],
+        alpha: float = 0.05,
+        methods: list[str] = None,
         correction_method: str = "BH",
+        k: int = 1,
     ) -> dict:
         """
-        Calculates the p_values and checks significance for the persistence diagrams.
-        Alpha is the significance.
-        Methods include:
-            universal_null test by Omer Bobrowski & Primoz Skraba
-            bottleneck test by Fasy et al.
+        Run significance tests on the persistence diagram for dimension k.
+
+        Requires calculate_dgms_from_point_cloud to have been called with
+        max_dim >= k (or equivalently k >= k).
+
+        alpha : float
+            Significance level in (0, 1).  Default 0.05.
+        methods : list[str], optional
+            One or more of self.allowed_methods.
+            Defaults to ["universal_null", "bottleneck"].
+        correction_method : str
+            Multiple-testing correction strategy passed to the test objects.
+        k : int
+            Homological dimension to test.  Default 1.
+
+        dict
+            Keyed by method name; each value is the dict returned by the
+            corresponding test's .results() method.
         """
+        if not isinstance(k, int) or k < 0:
+            raise TypeError(
+                f"k must be a non-negative integer homological dimension, got {k!r}."
+            )
         if not isinstance(alpha, float):
             raise TypeError(
                 f"alpha must be a float, got {type(alpha).__name__}."
             )
         if alpha <= 0 or alpha >= 1:
             raise ValueError(
-                f"alpha, the significance, must be between 0 and 1, got alpha={alpha}."
+                f"alpha must be strictly between 0 and 1, got {alpha}."
             )
 
-        if any(methods) not in self.allowed_methods:
+        if methods is None:
+            methods = ["universal_null", "bottleneck"]
+
+        invalid = [m for m in methods if m not in self.allowed_methods]
+        if invalid:
             raise ValueError(
-                f"methods must be one of {self.allowed_methods}"
+                f"Unknown method(s): {invalid}. "
+                f"Allowed methods: {self.allowed_methods}."
             )
 
+        if k not in self.dgms:
+            raise ValueError(
+                f"No persistence diagram found for dimension k={k}. "
+                f"Call calculate_dgms_from_point_cloud(k={k}) first."
+            )
+
+        self.k = k
+        dgm_k = self.dgms[k]
         results = {}
 
-        if "universal_null" in methods:
+        if "universal_null" in methods or "universal_null:median" in methods:
             test = UNTest(
-                dgm=self.dgm,
-                k=self.k,
+                dgm=dgm_k,
+                k=k,
                 alpha=alpha,
                 correction_strategy=correction_method,
-                method="universal_null:median"
-            )
-            results["universal_null:median"] = test.results()
-
-        if "universal_null:median" in methods:
-            test = UNTest(
-                dgm=self.dgm,
-                k=self.k,
-                alpha=alpha,
-                correction_strategy=correction_method,
-                method="universal_null:median"
+                method="universal_null:median",
+                max_threshold=self.max_eps
             )
             results["universal_null:median"] = test.results()
 
         if "universal_null:mean" in methods:
             test = UNTest(
-                dgm=self.dgm,
-                k=self.k,
+                dgm=dgm_k,
+                k=k,
                 alpha=alpha,
                 correction_strategy=correction_method,
-                method="universal_null:mean"
+                method="universal_null:mean",
+                max_threshold=self.max_eps
             )
-            results["universal_null:median"] = test.results()
+            results["universal_null:mean"] = test.results()
 
-        if "bottleneck" in methods:
-            if self.point_cloud:
-                test = BNTest(
-                    point_cloud=self.point_cloud,
-                    k=self.k,
-                    alpha=alpha,
-                    method="bottleneck:subsample"
-                )
-                results["bottleneck:subsample"] = test.results()
-            else:
-                raise ValueError(
-                    f"Point cloud or distance matrix must be provided for all bottleneck methods"
-                )
+        if "bottleneck" in methods or "bottleneck:subsample" in methods:
+            test = BNTest(
+                point_cloud=self.pc,
+                dgm=dgm_k,
+                alpha=alpha,
+                method="bottleneck:subsample",
+            )
+            results["bottleneck:subsample"] = test.results()
 
-        if "bottleneck:subsample" in methods:
-            if self.point_cloud:
-                test = BNTest(
-                    point_cloud=self.point_cloud,
-                    k=self.k,
-                    alpha=alpha,
-                    method="bottleneck:subsample"
-                )
-                results["bottleneck:subsample"] = test.results()
-            else:
-                raise ValueError(
-                    f"Point cloud or distance matrix must be provided for all bottleneck methods"
-                )
+        if "bottleneck:shells" in methods:
+            test = BNTest(point_cloud=self.pc, dgm=dgm_k,
+                          alpha=alpha, method="bottleneck:shells")
+            results["bottleneck:shells"] = test.results()
+
+        if "bottleneck:density" in methods:
+            test = BNTest(point_cloud=self.pc, dgm=dgm_k,
+                          alpha=alpha, method="bottleneck:density")
+            results["bottleneck:density"] = test.results()
+
+        if "bottleneck:concentration" in methods:
+            test = BNTest(point_cloud=self.pc, dgm=dgm_k,
+                          alpha=alpha, method="bottleneck:concentration")
+            results["bottleneck:concentration"] = test.results()
 
         self._cached_results = results
         return results
@@ -227,16 +453,26 @@ class Phantom:
     def display_results(
         self,
         results: dict = None,
-        method:  str = "all",
-        plot:    str = "both",
+        method: str = "all",
+        plot: str = "both",
     ) -> None:
         """
-        Visualise hypothesis test results
+        Visualise hypothesis test results.
+
+        results : dict, optional
+            Output of hypothesis_test.  Uses the most recent cached run
+            when omitted.
+        method : str
+            Which method to plot, or "all" for every method in results.
+        plot : str
+            "diagram", "barcode", or "both".
         """
         if results is None:
-            if not hasattr(self, "_cached_results"):
+            if not self._cached_results:
                 raise ValueError(
-                    "require results passed in or a previously ran hypothesis_test.")
+                    "No results to display. Pass a results dict or call "
+                    "hypothesis_test first."
+                )
             results = self._cached_results
 
         if not isinstance(results, dict):
@@ -245,7 +481,8 @@ class Phantom:
 
         if plot not in ("diagram", "barcode", "both"):
             raise ValueError(
-                f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}.")
+                f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}."
+            )
 
         available = list(results.keys())
         if method == "all":
@@ -253,20 +490,25 @@ class Phantom:
         else:
             if method not in available:
                 raise ValueError(
-                    f"method {method!r} not found in results. Available: {available}")
+                    f"method {method!r} not found in results. Available: {available}."
+                )
             methods_to_plot = [method]
 
         n_cols = 2 if plot == "both" else 1
         n_rows = len(methods_to_plot)
 
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(
-            6 * n_cols, 5 * n_rows), squeeze=False)
+        fig, axes = plt.subplots(
+            n_rows, n_cols,
+            figsize=(6 * n_cols, 5 * n_rows),
+            squeeze=False,
+        )
         fig.suptitle(f"H_{self.k} persistence results", fontsize=14)
 
         for row, mname in enumerate(methods_to_plot):
             res = results[mname]
             results_array = res["results_array"]
             thr = res.get("threshold", np.nan)
+
             births = results_array[:, 0]
             deaths = results_array[:, 1]
             pers = deaths - births
@@ -275,32 +517,34 @@ class Phantom:
 
             if plot in ("diagram", "both"):
                 ax = axes[row, ax_idx]
-                lim = deaths[np.isfinite(deaths)].max() * 1.05
+                finite_deaths = deaths[np.isfinite(deaths)]
+                lim = finite_deaths.max() * 1.05 if len(finite_deaths) else 1.0
                 xs = np.linspace(0, lim, 300)
 
                 ax.plot([0, lim], [0, lim], "k--", lw=0.8,
                         alpha=0.4, label="diagonal")
+
                 if not np.isnan(thr):
-                    if "universal_null" in mname:
-                        # d = b * pi*  — ray from origin
+                    if np.isinf(thr):
+                        # inf threshold = everything is noise: shade the entire upper triangle
+                        ax.fill_between(xs, xs, lim,
+                                        color="steelblue", alpha=0.07, label="noise band (all)")
+                    elif "universal_null" in mname:
+                        # Threshold is a multiplicative ratio: death = (pi*)(birth)
                         ax.plot(xs, thr * xs, color="steelblue", lw=1.2,
-                                linestyle="--", alpha=0.7,
-                                label=f"π* = {thr:.2f}")
+                                linestyle="--", alpha=0.7, label=f"pi_min = {thr:.2f}")
                         ax.fill_between(xs, xs, thr * xs,
-                                        color="steelblue", alpha=0.07,
-                                        label="noise band")
+                                        color="steelblue", alpha=0.07, label="noise band")
                     else:
-                        # d = b + 2*c_n  — parallel to diagonal
+                        # Threshold is an additive offset: death = birth + 2c_n
                         ax.plot(xs, xs + thr, color="steelblue", lw=1.2,
-                                linestyle="--", alpha=0.7,
-                                label=f"2c_n = {thr:.3f}")
+                                linestyle="--", alpha=0.7, label=f"2c_n = {thr:.3f}")
                         ax.fill_between(xs, xs, xs + thr,
-                                        color="steelblue", alpha=0.07,
-                                        label="noise band")
+                                        color="steelblue", alpha=0.07, label="noise band")
 
                 ax.scatter(births[~sig], deaths[~sig], s=8,  alpha=0.4,
                            color="steelblue", label="noise")
-                ax.scatter(births[sig],  deaths[sig],  s=9, alpha=0.9,
+                ax.scatter(births[sig],  deaths[sig],  s=9,  alpha=0.9,
                            color="crimson", label=f"significant ({sig.sum()})", zorder=5)
 
                 ax.set_xlabel("birth")
@@ -315,14 +559,15 @@ class Phantom:
             if plot in ("barcode", "both"):
                 ax = axes[row, ax_idx]
                 order = np.argsort(pers)[::-1]
+
                 for rank, idx in enumerate(order):
                     color = "crimson" if sig[idx] else "steelblue"
-                    av = 0.9 if sig[idx] else 0.25
+                    alpha_val = 0.9 if sig[idx] else 0.25
                     lw = 3.5 if sig[idx] else 1.0
                     ax.hlines(rank, births[idx], deaths[idx],
-                              colors=color, linewidth=lw, alpha=av)
+                              colors=color, linewidth=lw, alpha=alpha_val)
 
-                ax.set_xlabel("filtration value epsilon")
+                ax.set_xlabel("filtration value ε")
                 ax.set_ylabel("bar rank")
                 ax.set_title(f"{mname} — barcode ({sig.sum()} significant)")
                 ax.invert_yaxis()
