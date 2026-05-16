@@ -150,11 +150,9 @@ class BNTest:
         except OverflowError:
             N = self.max_depth
         all_idx = np.arange(n)
-        print(f"N: {N}")
 
         T_j_array = np.zeros(N)
         for i in range(N):
-            print(f"{i}/{N}, {round(i*100/N, 2)}%")
             idx = np.random.choice(n, size=b, replace=False)
             if self.is_distance_matrix:
                 T_j_array[i] = self.hausdorff_dist_matrix(idx, all_idx)
