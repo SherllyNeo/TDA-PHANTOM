@@ -42,9 +42,9 @@ class Phantom:
             "universal_null:mean",
             "bottleneck",
             "bottleneck:subsample",
-            "bottleneck:shells",
-            "bottleneck:density",
-            "bottleneck:concentration",
+            # "bottleneck:shells",
+            # "bottleneck:density",
+            # "bottleneck:concentration",
         ]
         self.allowed_methods_descriptions: dict[str, str] = {
             "universal_null":           "Alias for universal_null:median.",
@@ -52,9 +52,9 @@ class Phantom:
             "universal_null:mean":      "Assumes noise follows a Gumbel distribution (Bobrowski & Skraba); uses mean normalisation.",
             "bottleneck":               "Alias for bottleneck:subsample. All bottleneck methods aim to bound the bottleneck distance between your samples diagram and the ideal hypothetical diagram using confidence intervals. This is how the hypothesis test is designed.",
             "bottleneck:subsample":     "Bootstrap confidence band via subsampling (Fasy et al.).",
-            "bottleneck:shells":        "Bottleneck test using shell decomposition.",
-            "bottleneck:density":       "Bottleneck test using density estimation.",
-            "bottleneck:concentration": "Bottleneck test using concentration inequalities.",
+            # "bottleneck:shells":        "Bottleneck test using shell decomposition.",
+            # "bottleneck:density":       "Bottleneck test using density estimation.",
+            # "bottleneck:concentration": "Bottleneck test using concentration inequalities.",
         }
 
     def __repr__(self) -> str:
