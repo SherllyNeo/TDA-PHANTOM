@@ -5,6 +5,8 @@ from tdaphantom.hypothesis_tests.bottleneck_distance_tests.bottleneck_distance_t
 import matplotlib.pyplot as plt
 import gudhi
 from ripser import ripser
+import pickle
+import os
 
 
 class Phantom:
@@ -575,3 +577,28 @@ class Phantom:
 
         plt.tight_layout()
         plt.show()
+
+    def save(self, path: str) -> None:
+        """
+        Save the Phantom instance to disk using pickle.
+        """
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+        print(f"Saved Phantom to {path}")
+
+    @classmethod
+    def load(cls, path: str) -> "Phantom":
+        """
+        Load a Phantom instance from disk.
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"No Phantom file found at {path!r}.")
+        with open(path, "rb") as f:
+            obj = pickle.load(f)
+        if not isinstance(obj, cls):
+            raise TypeError(
+                f"Loaded object is {type(obj).__name__}, expected Phantom."
+            )
+        print(f"Loaded Phantom from {path}")
+        return obj
