@@ -119,9 +119,7 @@ class BNTest:
         """
 
         n = len(self.dgm)
-        b = max(int(n / np.log(n)), 10)
-        b = min(b, 50)
-
+        b = int(0.8*n)
         try:
             N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
         except OverflowError:
@@ -143,8 +141,7 @@ class BNTest:
         with probability >= 1 - alpha.
         """
         n = len(self.pc)
-        b = max(int(n / np.log(n)), 10)
-        b = min(b, 50)
+        b = int(0.8*n)
         try:
             N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
         except OverflowError:
