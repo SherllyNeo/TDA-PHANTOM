@@ -89,4 +89,25 @@ phantom_circle.display_results()
 
 ## Basic useage
 
+
 ## Avaliable methods
+
+## Universal null median
+### Useage
+### Theory
+
+## Universal null mean
+### Useage
+### Theory
+
+## Bottleneck subsampling
+### Useage
+### Theory
+
+## TODO
+
+* Add bottleneck shells
+* Add bottleneck density
+* Add bottleneck concentration
+* Add more integeration tests
+* Add more unit tests
