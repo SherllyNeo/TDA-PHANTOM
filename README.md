@@ -16,7 +16,7 @@ Via [PyPI](https://pypi.org/project/tdaphantom/):
 ```bash
 pip install tdaphantom
 ```
-Or you can clone this repository and install it manually:
+Or you can clone this repository -  [TDA-PHANTOM](https://github.com/SherllyNeo/TDA-PHANTOM) and install it manually:
 ```bash
 python setup.py install
 ```
@@ -52,7 +52,7 @@ phantom_circle.calculate_dgms_from_point_cloud_ripser(k=1)
 ```python
 phantom_circle.display_dgms()
 ```
-![Persistence diagram for a circle using phatom](./README_SRC/circle_dgms.png)
+![Persistence diagram for a circle using phatom](![Persistence diagram](https://raw.githubusercontent.com/SherllyNeo/TDA-PHANTOM/main/README_SRC/circle_dgms.png))
 
 ### Run hypothesis test
 ```python
@@ -66,7 +66,7 @@ phantom_circle.hypothesis_test(alpha, methods=methods, k=1)
 ```python
 phantom_circle.display_results()
 ```
-![signifiance Persistence diagram for a circle using phatom](./README_SRC/circle_sig.png)
+![signifiance Persistence diagram for a circle using phatom](![Persistence diagram](https://raw.githubusercontent.com/SherllyNeo/TDA-PHANTOM/main/README_SRC/circle_sig.png))
 
 ## Basic useage
 The general workflow is:

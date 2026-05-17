@@ -57,9 +57,9 @@ class Phantom:
             # "bottleneck:concentration": "Bottleneck test using concentration inequalities.",
         }
         self.defaults = {
-            "universal_null":           {"correction_strategy": "BH", "max_threshold": None, "max_depth": 1000},
-            "universal_null:median":    {"correction_strategy": "BH", "max_threshold": None, "max_depth": 1000},
-            "universal_null:mean":      {"correction_strategy": "BH", "max_threshold": None, "max_depth": 1000},
+            "universal_null":           {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
+            "universal_null:median":    {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
+            "universal_null:mean":      {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
             "bottleneck":               {"max_depth": 50, "b_multiplier": 0.8},
             "bottleneck:subsample":     {"max_depth": 50, "b_multiplier": 0.8},
             "bottleneck:shells":        {"max_depth": 50, "b_multiplier": 0.8},
