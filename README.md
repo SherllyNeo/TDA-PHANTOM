@@ -62,7 +62,7 @@ phantom_circle.calculate_dgms_from_point_cloud_ripser(k=1)
 ```python
 phantom_circle.display_dgms()
 ```
-[Persistence diagram for a circle using phatom](README_SRC/circle_dgms.png)
+![Persistence diagram for a circle using phatom](./README_SRC/circle_dgms.png)
 
 ### Run hypothesis test
 ```python
@@ -82,7 +82,7 @@ def _make_circle(n=2000, noise=0.03, seed=1):
     pts   = np.stack([np.cos(theta), np.sin(theta)], axis=1)
     return pts + rng.normal(0, noise, pts.shape)
 ```
-[signifiance Persistence diagram for a circle using phatom](README_SRC/circle_sig.png)
+![signifiance Persistence diagram for a circle using phatom](./README_SRC/circle_sig.png)
 
 
 ## Basic useage
