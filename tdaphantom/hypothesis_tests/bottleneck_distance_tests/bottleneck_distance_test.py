@@ -63,7 +63,7 @@ class BNTest:
         with probability >= 1 - alpha.
         """
         n = len(self.pc)
-        b = int(0.4*n)
+        b = int(0.8*n)
         try:
             N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
         except OverflowError:

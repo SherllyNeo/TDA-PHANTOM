@@ -429,22 +429,23 @@ class Phantom:
                 dgm=dgm_k,
                 alpha=alpha,
                 method="bottleneck:subsample",
+                is_distance_matrix=self.is_dist,
             )
             results["bottleneck:subsample"] = test.results()
 
         if "bottleneck:shells" in methods:
             test = BNTest(point_cloud=self.pc, dgm=dgm_k,
-                          alpha=alpha, method="bottleneck:shells")
+                          alpha=alpha, method="bottleneck:shells", is_distance_matrix=self.is_dist,)
             results["bottleneck:shells"] = test.results()
 
         if "bottleneck:density" in methods:
             test = BNTest(point_cloud=self.pc, dgm=dgm_k,
-                          alpha=alpha, method="bottleneck:density")
+                          alpha=alpha, method="bottleneck:density", is_distance_matrix=self.is_dist,)
             results["bottleneck:density"] = test.results()
 
         if "bottleneck:concentration" in methods:
             test = BNTest(point_cloud=self.pc, dgm=dgm_k,
-                          alpha=alpha, method="bottleneck:concentration")
+                          alpha=alpha, method="bottleneck:concentration", is_distance_matrix=self.is_dist,)
             results["bottleneck:concentration"] = test.results()
 
         self._cached_results = results
