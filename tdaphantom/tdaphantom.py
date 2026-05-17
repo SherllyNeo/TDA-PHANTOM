@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
-from .hypothesis_tests.universal_null_tests.universal_null_hypothesis_test import UNTest
-from .hypothesis_tests.bottleneck_distance_tests.bottleneck_distance_test import BNTest
+from tdaphantom.hypothesis_tests.universal_null_tests.universal_null_hypothesis_test import UNTest
+from tdaphantom.hypothesis_tests.bottleneck_distance_tests.bottleneck_distance_test import BNTest
 import matplotlib.pyplot as plt
 import gudhi
 from ripser import ripser

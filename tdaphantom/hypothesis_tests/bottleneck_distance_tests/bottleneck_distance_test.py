@@ -16,7 +16,7 @@ class BNTest:
         k:                   int = 1,
         alpha:               float = 0.05,
         complex:             str = "VR",
-        max_depth:           int = 100,  # low and slow
+        max_depth:           int = 50,  # low and slow
         method: str = "bottleneck:subsample"
     ):
         """
@@ -70,15 +70,16 @@ class BNTest:
             N = self.max_depth
         all_idx = np.arange(n)
 
+        if not self.is_distance_matrix:
+            D = cdist(self.pc, self.pc)
+        else:
+            D = self.pc
+
         T_j_array = np.zeros(N)
         for i in range(N):
             idx = np.random.choice(n, size=b, replace=False)
-            if self.is_distance_matrix:
-                # ugly
-                T_j_array[i] = float(
-                    self.pc[np.ix_(all_idx, idx)].min(axis=1).max())
-            else:
-                T_j_array[i] = self.hausdorff(self.pc[idx], self.pc)
+            # h(S_n, S_b*) = max_{i in S_n} min_{j in S_b*} D[i,j]
+            T_j_array[i] = float(D[:, idx].min(axis=1).max())
 
         return T_j_array
 
