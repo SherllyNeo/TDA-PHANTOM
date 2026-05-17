@@ -1,17 +1,17 @@
 # TDA-PHANTOM
-Topological data analysis - Persistent Homology Analysis via Null Testing On Manifolds (TDA-PHANTOM) is a tool for statistically analysing significance of persistence diagrams and barcodes.
+Topological data analysis -
+Persistent Homology Analysis via Null Testing On Manifolds (TDA-PHANTOM)
+is a tool for statistically analysing significance of persistence diagrams and barcodes.
 
-This impliments hypothesis tests from
+This project implements hypothesis tests from:
 
-"CONFIDENCE SETS FOR PERSISTENCE DIAGRAMS"
-By Fasy et al (2014)
+- *Confidence Sets for Persistence Diagrams*
+  Fasy et al. (2014)
+  DOI: https://doi.org/10.1214/14-AOS1252
 
-doi: 10.1214/14-AOS1252
-
-"A universal null-distribution for topological data analysis"
-By Bobrowski and Skraba (2023)
-
-doi: 10.1038/s41598-023-37842-2
+- *A Universal Null-Distribution for Topological Data Analysis*
+  Bobrowski and Skraba (2023)
+  DOI: https://doi.org/10.1038/s41598-023-37842-2
 
 
 ## Installation
