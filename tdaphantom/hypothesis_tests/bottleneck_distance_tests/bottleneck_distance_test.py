@@ -4,6 +4,7 @@ import math
 import random
 import gudhi
 from scipy.spatial.distance import cdist
+from tdaphantom.metrics.metrics import w_infinity, hausdorff_dist_matrix, hausdorff
 
 
 class BNTest:
@@ -33,93 +34,14 @@ class BNTest:
         self.max_depth = max_depth
         self.alpha = alpha
 
-    def w_infinity(self, dgm_1: np.ndarray, dgm_2: np.ndarray) -> float:
-        w_inf_approx = gudhi.bottleneck_distance(
-            dgm_1.tolist(), dgm_2.tolist(), e=0.01)
-        return w_inf_approx
-
-    def hausdorff_directed(self, A: np.ndarray, B: np.ndarray) -> float:
-        """
-        Directed Hausdorff distance from Algorithm 2 in "An Efficient Algorithm for Calculating the Exact Hausdorff Distance"
-        from Taha & Hanbury
-        """
-        rng = np.random.default_rng()
-        A = rng.permutation(A)
-        B = rng.permutation(B)
-
-        c_max = 0.0
-        for a in A:
-            c_min = np.inf
-            for b in B:
-                d = float(np.linalg.norm(a - b))
-                if d < c_max:
-                    c_min = d  # paper omits this but it seems required
-                    break
-                if d < c_min:
-                    c_min = d
-            if c_min > c_max:
-                c_max = c_min
-
-        return c_max
-
-    def hausdorff(self, A: np.ndarray, B: np.ndarray) -> float:
-        """
-        Symmetric Hausdorff distance
-        """
-        return max(self.hausdorff_directed(A, B), self.hausdorff_directed(B, A))
-
-    def hausdorff_directed_dist_matrix(self, A: np.ndarray, B: np.ndarray) -> float:
-        """
-        Taken from "an Efficient Algorithm for Calculating the Exact Hausdorff Distance"
-        by Abdel Aziz Taha and Allan Hanbury.
-
-        This does not need to compute euclidean distance as this is done for us
-        """
-        rng = np.random.default_rng()
-        A_idx = rng.permutation(A_idx)
-        B_idx = rng.permutation(B_idx)
-
-        c_max = 0.0
-        for i in A_idx:
-            c_min = np.inf
-            for j in B_idx:
-                d = float(self.distance_matrix[i, j])
-                if d < c_max:
-                    c_min = d
-                    break
-                if d < c_min:
-                    c_min = d
-            if c_min > c_max:
-                c_max = c_min
-
-        return c_max
-
-    def hausdorff_dist_matrix(self, A_idx: np.ndarray, B_idx: np.ndarray) -> float:
-        """
-        Symmetric Hausdorff distance H(A,B) = max(h(A,B), h(B,A))
-        """
-        return max(
-            self.hausdorff_directed_dist_matrix(A_idx, B_idx),
-            self.hausdorff_directed_dist_matrix(B_idx, A_idx),
-        )
-
     def _subsampling_method_via_persistence(self, subsample_percentage: float = 0.3) -> float:
         """
-        Fasy et al. 4.2 subsampling
-        b   = subsample size = O(n / log(n))
-        N   = number of subsamples (theory uses n choose b, but we will use a subset)
-        The paper uses the Hausdorff distance on the original point clouds, we do not have access to this
-        so we will use the bottleneck distance between subsamples of the persistence diagrams.
-
-        This should be justified at some point.
-
-        A bar with persistence > C_b is significant at level alpha.
-        By the bottleneck stability theorem, W_inf(PH(S_n), PH(P)) <= C_b
-        with probability >= 1 - alpha.
+        DEPRECIATED - DO NOT USE
+        E[W_infnity(hat(P),P)] != E[W_infnity(hat(P),subsample_hat(P)]
         """
 
         n = len(self.dgm)
-        b = int(0.8*n)
+        b = int(0.4*n)
         try:
             N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
         except OverflowError:
@@ -141,7 +63,7 @@ class BNTest:
         with probability >= 1 - alpha.
         """
         n = len(self.pc)
-        b = int(0.8*n)
+        b = int(0.4*n)
         try:
             N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
         except OverflowError:
@@ -152,7 +74,9 @@ class BNTest:
         for i in range(N):
             idx = np.random.choice(n, size=b, replace=False)
             if self.is_distance_matrix:
-                T_j_array[i] = self.hausdorff_dist_matrix(idx, all_idx)
+                # ugly
+                T_j_array[i] = float(
+                    self.pc[np.ix_(all_idx, idx)].min(axis=1).max())
             else:
                 T_j_array[i] = self.hausdorff(self.pc[idx], self.pc)
 
