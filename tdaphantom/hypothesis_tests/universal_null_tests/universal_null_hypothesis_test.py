@@ -9,13 +9,12 @@ class UNTest:
     def __init__(
         self,
         dgm:                 np.ndarray,
+        options: dict,
         k:                   int,
         alpha:               float = 0.05,
         complex:             str = "VR",
-        correction_strategy: str = "BH",
         max_depth:           int = 1000,
-        max_threshold=None,
-        method: str = "universal_null:median"
+        method: str = "universal_null:median",
     ):
         """
         Implimentation of the universal null hypothesis test from
@@ -25,9 +24,9 @@ class UNTest:
         self.dgm = np.copy(dgm)
         self.k = k
         self.complex = complex  # currently only VR is supported
-        self.max_depth = max_depth
+        self.max_depth = options.max_depth
         self.alpha = alpha
-        self.correction_strategy = correction_strategy
+        self.correction_strategy = options.correction_strategy
         self.method = method
 
         default_max = 10.0  # max epsilon for ripser for example

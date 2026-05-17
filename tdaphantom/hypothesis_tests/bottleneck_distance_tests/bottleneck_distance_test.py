@@ -11,13 +11,13 @@ class BNTest:
     def __init__(
         self,
         point_cloud:         np.ndarray,
+        options: dict,
         is_distance_matrix:  bool = False,
         dgm:                 np.ndarray = None,
         k:                   int = 1,
         alpha:               float = 0.05,
         complex:             str = "VR",
-        max_depth:           int = 50,  # low and slow
-        method: str = "bottleneck:subsample"
+        method: str = "bottleneck:subsample",
     ):
         """
         The bottleneck hypothesis testing from
@@ -36,8 +36,9 @@ class BNTest:
         self.is_distance_matrix = is_distance_matrix
         self.k = k
         self.complex = complex  # currently only VR is supported
-        self.max_depth = max_depth
+        self.max_depth = options.max_depth
         self.alpha = alpha
+        self.b_multiplier = options.b_multiplier
 
     def _subsampling_method_via_persistence(self, subsample_percentage: float = 0.3) -> float:
         """
@@ -75,7 +76,7 @@ class BNTest:
         In practice, larger b gives smaller c_n and more power but looser theory guarantees.
         """
         n = len(self.pc)
-        b = min(int(3.5*(n / np.log(n))), int(0.8*n))
+        b = min(int(self.b_multiplier*(n / np.log(n))), int(0.8*n))
         try:
             N = min(int(subsample_percentage * math.comb(n, b)), self.max_depth)
         except OverflowError:

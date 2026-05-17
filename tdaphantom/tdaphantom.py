@@ -56,6 +56,16 @@ class Phantom:
             # "bottleneck:density":       "Bottleneck test using density estimation.",
             # "bottleneck:concentration": "Bottleneck test using concentration inequalities.",
         }
+        self.defaults = {
+            "universal_null":           {"correction_strategy": "BH", "max_threshold": None, "max_depth": 1000},
+            "universal_null:median":    {"correction_strategy": "BH", "max_threshold": None, "max_depth": 1000},
+            "universal_null:mean":      {"correction_strategy": "BH", "max_threshold": None, "max_depth": 1000},
+            "bottleneck":               {"max_depth": 50, "b_multiplier": 0.8},
+            "bottleneck:subsample":     {"max_depth": 50, "b_multiplier": 0.8},
+            "bottleneck:shells":        {"max_depth": 50, "b_multiplier": 0.8},
+            "bottleneck:density":       {"max_depth": 50, "b_multiplier": 0.8},
+            "bottleneck:concentration": {"max_depth": 50, "b_multiplier": 0.8},
+        }
 
     def __repr__(self) -> str:
         sizes = {k: len(v) for k, v in self.dgms.items()}
@@ -132,6 +142,10 @@ class Phantom:
 
         self.max_eps = max_eps
 
+        self.defaults["universal_null"]["max_threshold"] = self.max_eps
+        self.defaults["universal_null:median"]["max_threshold"] = self.max_eps
+        self.defaults["universal_null:mean"]["max_threshold"] = self.max_eps
+
         if is_distance_matrix:
             rc = gudhi.RipsComplex(
                 distance_matrix=point_cloud.tolist(),
@@ -175,7 +189,7 @@ class Phantom:
         interface to calculate_dgms_from_point_cloud but uses ripser
         instead of gudhi's RipsComplex.
 
-        Ripser is significantly faster than gudhi for Vietoris-Rips
+        Ripser is ignificantly faster than gudhi for Vietoris-Rips
         persistence, especially at higher dimensions, because it exploits
         the implicit representation of the Rips complex and uses
         cohomology rather than homology internally.
@@ -195,9 +209,8 @@ class Phantom:
             explicitly supplied.
 
         Returns
-        dict[int, np.ndarray]
             Persistence diagrams keyed by homological dimension,
-            stored in ``self.dgms``.
+            stored in self.dgms.
         """
         if point_cloud is None:
             point_cloud = self.pc
@@ -221,7 +234,7 @@ class Phantom:
                 self.dgms[dim] = np.empty((0, 2))
             else:
                 dgm = np.array(dgm, dtype=float)
-                # Remove degenerate bars (numerical artefacts)
+                # Remove potential degenerate bars (numerical artefacts)
                 self.dgms[dim] = dgm[dgm[:, 1] > dgm[:, 0]]
 
         self.max_eps = max_eps
@@ -244,7 +257,7 @@ class Phantom:
             "both"     — diagram and barcode side by side (default).
         """
         if not self.dgms:
-            if not dgms:
+            if dgms is None:
                 raise ValueError(
                     "No persistence diagrams found. "
                     "Call calculate_dgms_from_point_cloud first."
@@ -343,11 +356,29 @@ class Phantom:
         plt.tight_layout()
         plt.show()
 
+    def _get_options(self, method_name: str, methods: list, options: list) -> dict:
+        aliases = {
+            "universal_null": "universal_null:median",
+            "bottleneck":     "bottleneck:subsample",
+        }
+        lookup = aliases.get(method_name, method_name)
+        idx = next((i for i, m in enumerate(methods)
+                   if aliases.get(m, m) == lookup), None)
+        user_opts = (
+            options[idx]
+            if idx is not None
+            and options is not None
+            and idx < len(options)
+            and options[idx] is not None
+            else {}
+        )
+        return {**self.defaults[method_name], **user_opts}
+
     def hypothesis_test(
         self,
         alpha: float = 0.05,
         methods: list[str] = None,
-        correction_method: str = "BH",
+        options: list[dict] = None,
         k: int = 1,
     ) -> dict:
         """
@@ -361,14 +392,11 @@ class Phantom:
         methods : list[str], optional
             One or more of self.allowed_methods.
             Defaults to ["universal_null", "bottleneck"].
-        correction_method : str
-            Multiple-testing correction strategy passed to the test objects.
+        options : list[dict], optional
+            Per-method advanced options. Each entry corresponds to the method
+            at the same index in methods. Pass None for a method to use defaults.
         k : int
             Homological dimension to test.  Default 1.
-
-        dict
-            Keyed by method name; each value is the dict returned by the
-            corresponding test's .results() method.
         """
         if not isinstance(k, int) or k < 0:
             raise TypeError(
@@ -404,50 +432,76 @@ class Phantom:
         results = {}
 
         if "universal_null" in methods or "universal_null:median" in methods:
+            mname = "universal_null:median" if "universal_null:median" in methods else "universal_null"
+            opts = self._get_options(mname, methods, options)
             test = UNTest(
                 dgm=dgm_k,
                 k=k,
                 alpha=alpha,
-                correction_strategy=correction_method,
                 method="universal_null:median",
-                max_threshold=self.max_eps
+                options=opts,
             )
             results["universal_null:median"] = test.results()
 
         if "universal_null:mean" in methods:
+            opts = self._get_options("universal_null:mean", methods, options)
             test = UNTest(
                 dgm=dgm_k,
                 k=k,
                 alpha=alpha,
-                correction_strategy=correction_method,
                 method="universal_null:mean",
-                max_threshold=self.max_eps
+                options=opts,
             )
             results["universal_null:mean"] = test.results()
 
         if "bottleneck" in methods or "bottleneck:subsample" in methods:
+            mname = "bottleneck:subsample" if "bottleneck:subsample" in methods else "bottleneck"
+            opts = self._get_options(mname, methods, options)
             test = BNTest(
                 point_cloud=self.pc,
                 dgm=dgm_k,
                 alpha=alpha,
                 method="bottleneck:subsample",
                 is_distance_matrix=self.is_dist,
+                options=opts,
             )
             results["bottleneck:subsample"] = test.results()
 
         if "bottleneck:shells" in methods:
-            test = BNTest(point_cloud=self.pc, dgm=dgm_k,
-                          alpha=alpha, method="bottleneck:shells", is_distance_matrix=self.is_dist,)
+            opts = self._get_options("bottleneck:shells", methods, options)
+            test = BNTest(
+                point_cloud=self.pc,
+                dgm=dgm_k,
+                alpha=alpha,
+                method="bottleneck:shells",
+                is_distance_matrix=self.is_dist,
+                options=opts,
+            )
             results["bottleneck:shells"] = test.results()
 
         if "bottleneck:density" in methods:
-            test = BNTest(point_cloud=self.pc, dgm=dgm_k,
-                          alpha=alpha, method="bottleneck:density", is_distance_matrix=self.is_dist,)
+            opts = self._get_options("bottleneck:density", methods, options)
+            test = BNTest(
+                point_cloud=self.pc,
+                dgm=dgm_k,
+                alpha=alpha,
+                method="bottleneck:density",
+                is_distance_matrix=self.is_dist,
+                options=opts,
+            )
             results["bottleneck:density"] = test.results()
 
         if "bottleneck:concentration" in methods:
-            test = BNTest(point_cloud=self.pc, dgm=dgm_k,
-                          alpha=alpha, method="bottleneck:concentration", is_distance_matrix=self.is_dist,)
+            opts = self._get_options(
+                "bottleneck:concentration", methods, options)
+            test = BNTest(
+                point_cloud=self.pc,
+                dgm=dgm_k,
+                alpha=alpha,
+                method="bottleneck:concentration",
+                is_distance_matrix=self.is_dist,
+                options=opts,
+            )
             results["bottleneck:concentration"] = test.results()
 
         self._cached_results = results
