@@ -552,7 +552,8 @@ class Phantom:
 
                 ax.set_xlabel("birth")
                 ax.set_ylabel("death")
-                ax.set_title(f"{mname} — persistence diagram")
+                ax.set_title(
+                    f"{mname} — significance persistence diagram ({sig.sum()} significant)")
                 ax.set_aspect("equal")
                 ax.set_xlim(0, lim)
                 ax.set_ylim(0, lim)
@@ -570,9 +571,10 @@ class Phantom:
                     ax.hlines(rank, births[idx], deaths[idx],
                               colors=color, linewidth=lw, alpha=alpha_val)
 
-                ax.set_xlabel("filtration value ε")
+                ax.set_xlabel("filtration value epsilon")
                 ax.set_ylabel("bar rank")
-                ax.set_title(f"{mname} — barcode ({sig.sum()} significant)")
+                ax.set_title(
+                    f"{mname} — significance barcode ({sig.sum()} significant)")
                 ax.invert_yaxis()
 
         plt.tight_layout()

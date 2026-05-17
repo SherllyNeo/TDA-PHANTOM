@@ -29,7 +29,11 @@ python setup.py install
 
 ## Overview
 
-This tool can ...
+This tool can build a Vietoris-Rips complex from either a point cloud or distance matrix.
+
+It can then be used to visualise the persistence diagram for that complex, and run various hypothesis tests for it.
+
+The results of these hypothesis tests can be analysed via a return results array, or visualised in a signifiance persistence diagram.
 
 ## Example Usage
 
