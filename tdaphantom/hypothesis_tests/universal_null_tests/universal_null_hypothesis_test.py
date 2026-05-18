@@ -13,7 +13,6 @@ class UNTest:
         k:                   int,
         alpha:               float = 0.05,
         complex:             str = "VR",
-        max_depth:           int = 1000,
         method: str = "universal_null:median",
     ):
         """
@@ -24,12 +23,13 @@ class UNTest:
         self.dgm = np.copy(dgm)
         self.k = k
         self.complex = complex  # currently only VR is supported
-        self.max_depth = options.max_depth
+        self.max_depth = options["max_depth"]
         self.alpha = alpha
-        self.correction_strategy = options.correction_strategy
+        self.correction_strategy = options["correction_strategy"]
         self.method = method
 
         default_max = 10.0  # max epsilon for ripser for example
+        max_threshold = options["max_threshold"]
 
         if max_threshold is not None:
             self.max_threshold = max_threshold

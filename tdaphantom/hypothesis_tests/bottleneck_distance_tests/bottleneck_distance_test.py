@@ -36,9 +36,9 @@ class BNTest:
         self.is_distance_matrix = is_distance_matrix
         self.k = k
         self.complex = complex  # currently only VR is supported
-        self.max_depth = options.max_depth
+        self.max_depth = options["max_depth"]
         self.alpha = alpha
-        self.b_multiplier = options.b_multiplier
+        self.b_multiplier = options["b_multiplier"]
 
     def _subsampling_method_via_persistence(self, subsample_percentage: float = 0.3) -> float:
         """
