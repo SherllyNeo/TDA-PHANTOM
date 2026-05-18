@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="tdaphantom",
-    version="1.0.4",
+    version="1.0.5",
     description="Statistical hypothesis testing for persistence diagrams and barcodes",
     long_description=long_description,
     long_description_content_type="text/markdown",

@@ -114,16 +114,17 @@ class BNTest:
 
     def concentration_of_measure_method(self):
         """
+        TODO
         Fasy et al. 4.2 concentration of measure
 
         From the paper:
         P(H(S_n, M) > \hat(t_n)) <= alpha + O((log(n)/n)^(1/(2+d)))
         """
-
-        ...
+        return None
 
     def concentration(self):
         """
+        TODO
         Calls concentration method to calculate c_n
         """
         c_n = self.concentration_of_measure_method()
@@ -131,15 +132,17 @@ class BNTest:
 
     def shells_method(self):
         """
+        TODO
         Fasy et al. 4.3 method of shells
 
         From the paper:
         P(H(S_{2,n}, M) > \hat(t_{1,n}) <= alpha + O(r_n)
         """
-        ...
+        return None
 
     def shells(self):
         """
+        TODO
         Calls shells method to calculate c_n
         """
         c_n = self.shells_method()
@@ -147,15 +150,17 @@ class BNTest:
 
     def denisty_method(self):
         """
+        TODO
         Fasy et al. 4.4 Density estimation
 
         From the paper:
         P(||\hat{p}_h - p_h||_infinity > Z_alpha / sqrt(nh^D) ) <= alpha + O(log(n)/nh^D)^((4+D)/(4+2D))
         """
-        ...
+        return None
 
     def denisty(self):
         """
+        TODO
         Calls shells method to calculate c_n
         """
         c_n = self.density_method()
