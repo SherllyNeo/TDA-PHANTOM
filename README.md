@@ -368,7 +368,7 @@ Available options:
 > **TODO**: not yet implemented.
 
 
-Fasy et al. (2014) §4.4 estimates the underlying density $p$ using a kernel
+Fasy et al. (2014) 4.4 estimates the underlying density $p$ using a kernel
 density estimator $\hat{p}_h$ and computes the persistence diagram of the upper level
 sets of $\hat{p}_h$.
 
