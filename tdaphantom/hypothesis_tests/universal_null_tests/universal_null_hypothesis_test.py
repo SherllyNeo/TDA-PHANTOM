@@ -222,6 +222,8 @@ class UNTest:
             alpha_thresh = self.alpha
 
         threshold = self._pi_min(alpha_thresh)
+        if p_values is None:
+            p_values = np.full(len(pers), np.nan)
 
         return {
             "results_array": np.column_stack([

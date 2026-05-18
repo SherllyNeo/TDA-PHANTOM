@@ -148,7 +148,7 @@ class BNTest:
         c_n = self.shells_method()
         return c_n, None
 
-    def denisty_method(self):
+    def density_method(self):
         """
         TODO
         Fasy et al. 4.4 Density estimation
@@ -158,7 +158,7 @@ class BNTest:
         """
         return None
 
-    def denisty(self):
+    def density(self):
         """
         TODO
         Calls shells method to calculate c_n
@@ -183,6 +183,8 @@ class BNTest:
         pers = deaths - births
 
         rejected = pers > 2*c_n
+        if p_values is None:
+            p_values = np.full(len(pers), np.nan)
 
         return {
             "results_array": np.column_stack([
