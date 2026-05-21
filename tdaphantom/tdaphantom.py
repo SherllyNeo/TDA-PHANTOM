@@ -60,11 +60,11 @@ class Phantom:
             "universal_null":           {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
             "universal_null:median":    {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
             "universal_null:mean":      {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
-            "bottleneck":               {"max_depth": 50, "b_multiplier": 0.8},
-            "bottleneck:subsample":     {"max_depth": 50, "b_multiplier": 0.8},
-            "bottleneck:shells":        {"max_depth": 50, "b_multiplier": 0.8},
-            "bottleneck:density":       {"max_depth": 50, "b_multiplier": 0.8},
-            "bottleneck:concentration": {"max_depth": 50, "b_multiplier": 0.8},
+            "bottleneck":               {"max_depth": 50, "b_multiplier": 3.5},
+            "bottleneck:subsample":     {"max_depth": 50, "b_multiplier": 3.5},
+            "bottleneck:shells":        {"max_depth": 50, "b_multiplier": 3.5},
+            "bottleneck:density":       {"max_depth": 50, "b_multiplier": 3.5},
+            "bottleneck:concentration": {"max_depth": 50, "b_multiplier": 3.5},
         }
 
     def __repr__(self) -> str:
@@ -93,7 +93,7 @@ class Phantom:
         you write calculate_dgms_from_point_cloud(k=2) and have exactly
         the diagrams needed for a subsequent hypothesis_test(k=2)
 
-        point_cloud : np.ndarray, optional
+        point_cloud or dist matrix : np.ndarray, optional
             Overrides self.pc when provided.
         is_distance_matrix : bool, optional
             Overrides self.is_dist when provided.
@@ -105,10 +105,6 @@ class Phantom:
         k : int, optional
             Convenience alias: sets max_dim when max_dim is not
             explicitly supplied.
-
-        Returns:
-            dict[int, np.ndarray]
-                Persistence diagrams keyed by homological dimension.
         """
 
         if point_cloud is None:
@@ -130,7 +126,7 @@ class Phantom:
                 if len(point_cloud) > 5000:
                     warnings.warn(
                         f"Computing the diameter of {len(point_cloud)} points "
-                        f"requires an O(n²) distance matrix. Consider passing "
+                        f"requires an O(n^2) distance matrix. Consider passing "
                         f"max_eps explicitly to avoid this.",
                         UserWarning,
                         stacklevel=2,
@@ -207,10 +203,6 @@ class Phantom:
         k : int, optional
             sets max_dim when max_dim is not
             explicitly supplied.
-
-        Returns
-            Persistence diagrams keyed by homological dimension,
-            stored in self.dgms.
         """
         if point_cloud is None:
             point_cloud = self.pc
