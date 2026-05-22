@@ -7,6 +7,8 @@ import gudhi
 from ripser import ripser
 import pickle
 import os
+from tdaphantom.display.display import DisplayPersistenceDiagram, DisplaySignificancePersistenceDiagram
+
 
 
 class Phantom:
