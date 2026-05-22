@@ -29,6 +29,7 @@ class BNTest:
         self.method = method
         self.method_calls = {
             "bottleneck:subsample": self.subsample,
+            "bottleneck:subsample_kdtree": self.subsample_kdtree,
             "bottleneck:concentration": self.concentration,
             "bottleneck:shells": self.shells,
             "bottleneck:density": self.density

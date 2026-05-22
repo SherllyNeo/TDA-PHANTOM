@@ -42,6 +42,7 @@ class Phantom:
             "universal_null:mean",
             "bottleneck",
             "bottleneck:subsample",
+            "bottleneck:subsample_kdtree",
             # "bottleneck:shells",
             # "bottleneck:density",
             # "bottleneck:concentration",
@@ -52,6 +53,7 @@ class Phantom:
             "universal_null:mean":      "Assumes noise follows a Gumbel distribution (Bobrowski & Skraba); uses mean normalisation.",
             "bottleneck":               "Alias for bottleneck:subsample. All bottleneck methods aim to bound the bottleneck distance between your samples diagram and the ideal hypothetical diagram using confidence intervals. This is how the hypothesis test is designed.",
             "bottleneck:subsample":     "Bootstrap confidence band via subsampling (Fasy et al.).",
+            "bottleneck:subsample_kdtree":     "Bootstrap confidence band via subsampling (Fasy et al.) using kde for efficency.",
             # "bottleneck:shells":        "Bottleneck test using shell decomposition.",
             # "bottleneck:density":       "Bottleneck test using density estimation.",
             # "bottleneck:concentration": "Bottleneck test using concentration inequalities.",
@@ -62,6 +64,7 @@ class Phantom:
             "universal_null:mean":      {"correction_strategy": None, "max_threshold": None, "max_depth": 1000},
             "bottleneck":               {"max_depth": 50, "b_multiplier": 3.5},
             "bottleneck:subsample":     {"max_depth": 50, "b_multiplier": 3.5},
+            "bottleneck:subsample_kdtree":     {"max_depth": 50, "b_multiplier": 1},
             "bottleneck:shells":        {"max_depth": 50, "b_multiplier": 3.5},
             "bottleneck:density":       {"max_depth": 50, "b_multiplier": 3.5},
             "bottleneck:concentration": {"max_depth": 50, "b_multiplier": 3.5},
@@ -458,6 +461,18 @@ class Phantom:
                 options=opts,
             )
             results["bottleneck:subsample"] = test.results()
+
+        if "bottleneck:subsample_kdtree" in methods:
+            opts = self._get_options("bottleneck:subsample_kdtree", methods, options)
+            test = BNTest(
+                point_cloud=self.pc,
+                dgm=dgm_k,
+                alpha=alpha,
+                method="bottleneck:subsample_kdtree",
+                is_distance_matrix=self.is_dist,
+                options=opts,
+            )
+            results["bottleneck:subsample_kdtree"] = test.results()
 
         if "bottleneck:shells" in methods:
             opts = self._get_options("bottleneck:shells", methods, options)

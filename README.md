@@ -191,6 +191,7 @@ phantom = Phantom.load("./saved/circle.phantom")
 | `universal_null:median` | `universal_null` | diagram only |
 | `universal_null:mean` | — | diagram only |
 | `bottleneck:subsample` | `bottleneck` | point cloud or distance matrix |
+| `bottleneck:subsample_kdtree` | `bottleneck` | point cloud or distance matrix |
 
 ## Universal null median
 
@@ -349,6 +350,70 @@ cost of strict theoretical guarantees on the type I error. The default
 b = int(3.5*(n / np.log(n)))
 ```
 is a practical choice.
+
+## Bottleneck subsampling kdtree
+
+### Useage
+```python
+phantom.hypothesis_test(alpha=0.05, methods=["bottleneck:subsampling_kdtree"], k=1)
+```
+
+With options:
+```python
+phantom.hypothesis_test(
+    alpha   = 0.05,
+    methods = ["bottleneck_subsampling_kdtree"],
+    options = [{"max_depth": 100}],
+    k       = 1,
+)
+```
+
+Available options:
+
+| Option | Default | Description |
+|---|---|---|
+| `max_depth` | `50` | Number of bootstrap subsamples N. |
+
+### Theory
+Fasy et al. (2014) 4.1 derive a confidence set for the persistence diagram of the form:
+
+```math
+\mathcal{C} = \{ Q : W_\infty(\hat{P}, P) \leq c_n \}
+```
+
+where $W_\infty$ is the bottleneck distance and $c_n$ is estimated by subsampling.
+
+For each of $N$ subsamples $S^*_b$ of size $b$ drawn without replacement from $S_n$:
+
+```math
+T_j = H(S_n, S^*_b) \quad \text{(Hausdorff distance between point sets)}
+```
+
+```math
+c_n = \text{quantile}(\{T_j\},\, 1 - \alpha)
+```
+
+By the bottleneck stability theorem, $W_\infty(\hat{P}, P) \leq H(S_n, M)$, so bars with
+persistence $> 2 c_n$ are significant at level $\alpha$.
+
+The p-value for bar $i$ is the fraction of bootstrap distances exceeding half its persistence:
+
+```math
+p_i = \frac{1}{N} \sum_j \mathbf{1}\!\left(T_j \geq \frac{\ell_i}{2}\right)
+```
+
+The error bound from the paper is:
+
+```math
+P(H(S_n, M) > c_n) \leq \alpha + O\!\left(\left(\frac{b}{n}\right)^{1/4}\right)
+```
+
+so the bias term shrinks as $b/n \to 0$. In practice, larger $b$ gives more power at the
+cost of strict theoretical guarantees on the type I error. The default
+```python
+b = int(n / np.log(n))
+```
+is enforced for a clean theoretical guarantee
 
 ## Bottleneck shells
 
