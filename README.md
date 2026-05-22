@@ -68,6 +68,33 @@ phantom_circle.display_results()
 ```
 ![signifiance Persistence diagram for a circle using phatom](![Persistence diagram](https://raw.githubusercontent.com/SherllyNeo/TDA-PHANTOM/main/README_SRC/circle_sig.png))
 
+## Sample size
+
+Each hypothesis method requires a specific minimum sample size to be reliable, in terms of the amount of points in the point cloud and potentially the amount of points in the persistence diagram/bars in the barcode.
+
+**This is checked by each hypothesis test automatically when a hypothesis test is ran.**
+
+### Universal null sample size
+
+TODO
+
+### Bottleneck subsampling sample size
+
+TODO
+
+### Bottleneck shells sample size
+
+TODO
+
+### Bottleneck density sample size
+
+TODO
+
+### Bottleneck concentration sample size
+
+TODO
+
+
 ## Basic useage
 The general workflow is:
 

@@ -5,6 +5,8 @@ import random
 import gudhi
 from scipy.spatial.distance import cdist
 from tdaphantom.metrics.metrics import w_infinity, hausdorff_dist_matrix, hausdorff
+from multiprocessing import Pool
+from sklearn.neighbors import KDTree
 
 
 class BNTest:
@@ -108,6 +110,47 @@ class BNTest:
         T_j_array = self._subsampling_method()
         c_n = float(np.quantile(T_j_array, 1.0 - self.alpha))
         p_values = np.array([
+            float(np.mean(T_j_array >= p / 2)) for p in pers
+        ])
+        return c_n, p_values
+
+    def _hauss_dist_point_cloud(self, b):
+        n     = len(self.pc)
+        I     = np.random.choice(n, b, replace=False)
+        Icomp = np.setdiff1d(np.arange(n), I)
+        tree  = KDTree(self.pc[I], leaf_size=2)
+        dist, _ = tree.query(self.pc[Icomp], k=1)
+        return float(dist.max())
+
+    def _hauss_dist_dist_matrix(self, b):
+        n     = len(self.pc)
+        I     = np.random.choice(n, b, replace=False)
+        Icomp = np.setdiff1d(np.arange(n), I)
+        return float(self.pc[np.ix_(Icomp, I)].min(axis=1).max())
+
+    def _subsampling_method_kdtree(self) -> np.ndarray:
+        from multiprocessing import Pool
+        n = len(self.pc)
+        b = int(n / np.log(n))
+        B = self.max_depth
+
+        if not self.is_distance_matrix:
+            with Pool() as p:
+                dist_vec = p.map(self._hauss_dist_point_cloud, [b] * B)
+        else:
+            with Pool() as p:
+                dist_vec = p.map(self._hauss_dist_dist_matrix, [b] * B)
+
+        return np.array(dist_vec)
+
+    def subsample_kdtree(self):
+        births = self.dgm[:, 0]
+        deaths = self.dgm[:, 1]
+        pers   = deaths - births
+
+        T_j_array = self._subsampling_method_kdtree()
+        c_n       = float(np.quantile(T_j_array, 1.0 - self.alpha))
+        p_values  = np.array([
             float(np.mean(T_j_array >= p / 2)) for p in pers
         ])
         return c_n, p_values
