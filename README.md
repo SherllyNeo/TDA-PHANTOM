@@ -362,7 +362,7 @@ With options:
 ```python
 phantom.hypothesis_test(
     alpha   = 0.05,
-    methods = ["bottleneck_subsampling_kdtree"],
+    methods = ["bottleneck:subsampling_kdtree"],
     options = [{"max_depth": 100}],
     k       = 1,
 )
