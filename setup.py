@@ -20,6 +20,9 @@ setup(
         "gudhi>=3.11.0",
         "ripser>=0.6.14",
         "sklearn>=1.0.0",
+        "seaborn>=0.13.2",
+        "pre-commit>=4.6.0",
+        "commitizen>=4.16.2",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
