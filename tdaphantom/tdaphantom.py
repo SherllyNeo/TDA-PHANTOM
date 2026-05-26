@@ -10,7 +10,6 @@ import os
 from tdaphantom.display.display import DisplayPersistenceDiagram, DisplaySignificancePersistenceDiagram
 
 
-
 class Phantom:
     """
     Persistence diagram container.
@@ -465,7 +464,8 @@ class Phantom:
             results["bottleneck:subsample"] = test.results()
 
         if "bottleneck:subsample_kdtree" in methods:
-            opts = self._get_options("bottleneck:subsample_kdtree", methods, options)
+            opts = self._get_options(
+                "bottleneck:subsample_kdtree", methods, options)
             test = BNTest(
                 point_cloud=self.pc,
                 dgm=dgm_k,
@@ -550,14 +550,14 @@ class Phantom:
                 f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}."
             )
 
-
         cls = DisplaySignificancePersistenceDiagram(
             results=results,
             method=method,
             plot=plot,
+            k=self.k,
+            # save_fpath=f"Hypothesis_test_results_H{self.k}.png", # TODO: RM < allow user to specify save path from method call?
         )
         cls.main()
-
 
     def save(self, path: str) -> None:
         """
