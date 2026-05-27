@@ -264,93 +264,13 @@ class Phantom:
                 f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}."
             )
 
-        dims = sorted(self.dgms.keys())
-        colours = plt.cm.tab10.colors
-
-        n_cols = 2 if plot == "both" else 1
-        fig, axes = plt.subplots(
-            1, n_cols, figsize=(6 * n_cols, 5), squeeze=False)
-
-        all_finite = np.concatenate(
-            [dgm[np.isfinite(dgm[:, 1])] for dgm in self.dgms.values()
-             if len(dgm) > 0],
-            axis=0,
-        ) if any(len(d) > 0 for d in self.dgms.values()) else np.empty((0, 2))
-
-        lim = all_finite[:, 1].max() * 1.05 if len(all_finite) else 1.0
-
-        if plot in ("diagram", "both"):
-            ax = axes[0, 0]
-            ax.plot([0, lim], [0, lim], "k--", lw=0.8,
-                    alpha=0.4, label="diagonal")
-
-            for dim in dims:
-                dgm = self.dgms[dim]
-                if len(dgm) == 0:
-                    continue
-                births = dgm[:, 0]
-                deaths = dgm[:, 1].copy()
-
-                inf_mask = ~np.isfinite(deaths)
-                deaths[inf_mask] = lim
-                colour = colours[dim % len(colours)]
-                ax.scatter(
-                    births, deaths,
-                    s=10, alpha=0.8, color=colour,
-                    label=f"H_{dim} ({len(dgm)})",
-                    zorder=3,
-                )
-
-                if inf_mask.any():
-                    ax.scatter(
-                        births[inf_mask], deaths[inf_mask],
-                        s=30, marker="^", color=colour, zorder=4,
-                    )
-
-            ax.set_xlabel("birth")
-            ax.set_ylabel("death")
-            ax.set_title("Persistence diagram")
-            ax.set_aspect("equal")
-            ax.set_xlim(0, lim)
-            ax.set_ylim(0, lim)
-            ax.legend(fontsize=8)
-
-        if plot in ("barcode", "both"):
-            ax = axes[0, 1 if plot == "both" else 0]
-
-            rank = 0
-            tick_positions = []
-            tick_labels = []
-
-            for dim in dims:
-                dgm = self.dgms[dim]
-                if len(dgm) == 0:
-                    continue
-                colour = colours[dim % len(colours)]
-
-                pers = dgm[:, 1] - dgm[:, 0]
-                order = np.argsort(pers)[::-1]
-                dim_start = rank
-
-                for idx in order:
-                    birth = dgm[idx, 0]
-                    death = dgm[idx, 1] if np.isfinite(dgm[idx, 1]) else lim
-                    ax.hlines(rank, birth, death, colors=colour,
-                              linewidth=1.5, alpha=0.8)
-                    rank += 1
-
-                mid = (dim_start + rank - 1) / 2
-                tick_positions.append(mid)
-                tick_labels.append(f"H_{dim}")
-
-            ax.set_xlabel("filtration value epsilon")
-            ax.set_yticks(tick_positions)
-            ax.set_yticklabels(tick_labels)
-            ax.set_title("Barcode")
-            ax.invert_yaxis()
-
-        plt.tight_layout()
-        plt.show()
+        DisplayPersistenceDiagram(
+            point_cloud=self.pc,
+            is_distance_matrix=self.is_dist,
+            dgms=self.dgms,
+            plot=plot,
+            save_fpath=f"Persistence_diagram_H{self.k}.png",
+        ).main()
 
     def _get_options(self, method_name: str, methods: list, options: list) -> dict:
         aliases = {
@@ -550,14 +470,13 @@ class Phantom:
                 f"plot must be 'diagram', 'barcode', or 'both', got {plot!r}."
             )
 
-        cls = DisplaySignificancePersistenceDiagram(
+        DisplaySignificancePersistenceDiagram(
             results=results,
             method=method,
             plot=plot,
             k=self.k,
             # save_fpath=f"Hypothesis_test_results_H{self.k}.png", # TODO: RM < allow user to specify save path from method call?
-        )
-        cls.main()
+        ).main()
 
     def save(self, path: str) -> None:
         """
