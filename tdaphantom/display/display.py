@@ -9,6 +9,18 @@ def is_interactive():
     return not hasattr(main, '__file__')
 
 
+def get_rcparams(label_size=14, n_cols=1, n_rows=1):
+    '''Set RC params for consistent plot styling across modules'''
+    plt_params = ["xtick.labelsize", "ytick.labelsize",
+                  "axes.labelsize", "axes.titlesize", "axes.labelsize",
+                  "figure.labelsize",
+                  "legend.fontsize"]
+    plt_rcparams = {i: label_size for i in plt_params}
+    plt_rcparams["figure.figsize"] = (6 * n_cols, 6 * n_rows)
+    plt_rcparams["figure.labelsize"] = label_size + 2
+    return plt_rcparams
+
+
 class DisplayPersistenceDiagram:
     def __init__(self, point_cloud: np.ndarray, is_distance_matrix: bool = False, dgms: np.ndarray = None, plot: str = "both", save_fpath: str = None):
         self.point_cloud = point_cloud
@@ -31,11 +43,11 @@ class DisplayPersistenceDiagram:
         colours = plt.cm.tab10.colors
 
         n_cols = 2 if self.plot == "both" else 1
-        sns.set_theme(rc={"xtick.labelsize": self.label_size, "ytick.labelsize": self.label_size,
-                          "axes.labelsize": self.label_size}, style="whitegrid")
+        sns.set_theme(rc=get_rcparams(label_size=self.label_size,
+                      n_cols=n_cols, n_rows=1), style="whitegrid")
 
         fig, axes = plt.subplots(
-            1, n_cols, figsize=(6 * n_cols, 5), squeeze=False)
+            1, n_cols, squeeze=False)
         fig.suptitle(f"Persistence diagrams",
                      fontsize=self.label_size+2)
 
@@ -75,9 +87,9 @@ class DisplayPersistenceDiagram:
                         s=30, marker="^", color=colour, zorder=4,
                     )
 
-            ax.set_xlabel("Birth", fontsize=self.label_size)
-            ax.set_ylabel("Death", fontsize=self.label_size)
-            ax.set_title("Persistence diagram", fontsize=self.label_size)
+            ax.set_xlabel("Birth")
+            ax.set_ylabel("Death")
+            ax.set_title("Persistence diagram", )
             ax.set_aspect("equal")
             ax.set_xlim(0, lim)
             ax.set_ylim(0, lim)
@@ -111,11 +123,10 @@ class DisplayPersistenceDiagram:
                 tick_positions.append(mid)
                 tick_labels.append(f"H$_{dim}$")
 
-            ax.set_xlabel("Filtration value (\u03B5)",
-                          fontsize=self.label_size)
+            ax.set_xlabel("Filtration value (\u03B5)")
             ax.set_yticks(tick_positions)
-            ax.set_yticklabels(tick_labels, fontsize=self.label_size)
-            ax.set_title("Barcode", fontsize=self.label_size)
+            ax.set_yticklabels(tick_labels,)
+            ax.set_title("Barcode")
             ax.invert_yaxis()
 
         plt.tight_layout()
@@ -160,11 +171,10 @@ class DisplaySignificancePersistenceDiagram:
         n_rows = len(methods_to_plot)
 
         '''Initialise subplots'''
-        sns.set_theme(rc={"xtick.labelsize": self.label_size, "ytick.labelsize": self.label_size,
-                      "axes.labelsize": self.label_size}, style="whitegrid")
+        sns.set_theme(rc=get_rcparams(self.label_size,
+                      n_cols, n_rows), style="whitegrid")
         fig, axes = plt.subplots(
             n_rows, n_cols,
-            figsize=(6.5 * n_cols, 6 * n_rows),
             squeeze=False,
         )
         fig.suptitle(f"H$_{self.k}$ persistence results",
@@ -215,14 +225,14 @@ class DisplaySignificancePersistenceDiagram:
                 ax.scatter(births[sig],  deaths[sig],  s=9,  alpha=0.9,
                            color="crimson", label=f"Significant ({sig.sum()})", zorder=5)
 
-                ax.set_xlabel("Birth", fontsize=self.label_size)
-                ax.set_ylabel("Death", fontsize=self.label_size)
+                ax.set_xlabel("Birth")
+                ax.set_ylabel("Death")
                 ax.set_title(
-                    f"Significance persistence diagram", fontsize=self.label_size)
+                    f"Significance persistence diagram")
                 ax.set_aspect("equal")
                 ax.set_xlim(0, lim)
                 ax.set_ylim(0, lim)
-                ax.legend(fontsize=self.label_size)
+                ax.legend()
                 ax_idx += 1
 
             if self.plot in ("barcode", "both"):
@@ -237,11 +247,10 @@ class DisplaySignificancePersistenceDiagram:
                     ax.hlines(rank, births[idx], deaths[idx],
                               colors=color, linewidth=lw, alpha=alpha_val)
 
-                ax.set_xlabel("Filtration value (\u03B5)",
-                              fontsize=self.label_size)
-                ax.set_ylabel("Bar rank", fontsize=self.label_size)
+                ax.set_xlabel("Filtration value (\u03B5)")
+                ax.set_ylabel("Bar rank")
                 ax.set_title(
-                    f"Significance barcode", fontsize=self.label_size)
+                    f"Significance barcode")
                 ax.invert_yaxis()
 
         plt.tight_layout()
